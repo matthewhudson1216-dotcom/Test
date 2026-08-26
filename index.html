@@ -13,6 +13,7 @@
     <header>
       <h1>3D Counter Clicker Game</h1>
       <div class="header-controls">
+        <span id="shards-display" class="shards-badge">🌌 0 Shards (+0%)</span>
         <button id="sfx-toggle" class="icon-btn" title="Toggle Sound Effects">🔊 SFX On</button>
       </div>
     </header>
@@ -27,6 +28,14 @@
             <span id="click-power-display">+1 per click</span>
           </div>
           <div id="frenzy-banner" class="frenzy-banner hidden">✨ FRENZY 7X MULTIPLIER! ✨</div>
+
+          <!-- Overcharge Gauge Bar -->
+          <div class="overcharge-wrapper" title="Fast consecutive clicks trigger Overcharge Hyper-Speed!">
+            <div class="overcharge-label">OVERCHARGE: <span id="overcharge-text">0%</span></div>
+            <div class="overcharge-bar-bg">
+              <div id="overcharge-bar-fill" class="overcharge-bar-fill" style="width: 0%;"></div>
+            </div>
+          </div>
         </div>
 
         <!-- 3D Canvas Viewport -->
@@ -36,68 +45,167 @@
         </div>
 
         <button id="click-btn" class="main-click-btn">CLICK 3D CRYSTAL</button>
+
+        <!-- Crystal Skins & Themes Customizer -->
+        <div class="customizer-box">
+          <div class="customizer-group">
+            <label>3D Skin:</label>
+            <select id="skin-select">
+              <option value="default">Default Blue Icosahedron</option>
+              <option value="ruby">Ruby Octahedron</option>
+              <option value="emerald">Emerald Prism</option>
+              <option value="rainbow">Chroma Rainbow Core</option>
+            </select>
+          </div>
+          <div class="customizer-group">
+            <label>Theme:</label>
+            <select id="theme-select">
+              <option value="cyan">Deep Space Cyan</option>
+              <option value="nebula">Nebula Violet</option>
+              <option value="cyberpunk">Cyberpunk Neon</option>
+              <option value="gold">Solar Gold</option>
+            </select>
+          </div>
+        </div>
       </section>
 
       <!-- Shop & Upgrades Section -->
       <section class="shop-section">
-        <h2>3D Upgrades & Satellites</h2>
-        <div class="upgrades-list">
-          <div class="upgrade-card">
-            <div class="upgrade-info">
-              <h3>Click Multiplier</h3>
-              <p>+1 point per click</p>
-              <div class="upgrade-stats">Owned: <span id="count-multiplier">0</span></div>
+        <!-- Tabs Navigation -->
+        <div class="shop-tabs">
+          <button id="tab-upgrades" class="tab-btn active">Upgrades</button>
+          <button id="tab-tech" class="tab-btn">Tech Tree</button>
+          <button id="tab-ascension" class="tab-btn prestige-tab">Ascension</button>
+          <button id="tab-stats" class="tab-btn">Stats</button>
+        </div>
+
+        <!-- Tab 1: Upgrades -->
+        <div id="panel-upgrades" class="tab-panel active">
+          <h2>3D Upgrades & Satellites</h2>
+          <div class="upgrades-list">
+            <div class="upgrade-card">
+              <div class="upgrade-info">
+                <h3>Click Multiplier</h3>
+                <p>+1 point per click</p>
+                <div class="upgrade-stats">Owned: <span id="count-multiplier">0</span></div>
+              </div>
+              <button id="buy-multiplier" class="buy-btn">
+                Buy (<span id="cost-multiplier">10</span>)
+              </button>
             </div>
-            <button id="buy-multiplier" class="buy-btn">
-              Buy (<span id="cost-multiplier">10</span>)
-            </button>
+
+            <div class="upgrade-card">
+              <div class="upgrade-info">
+                <h3>Orbiting Drone</h3>
+                <p>+1 CPS (Spawns 3D Drone)</p>
+                <div class="upgrade-stats">Owned: <span id="count-cursor">0</span></div>
+              </div>
+              <button id="buy-cursor" class="buy-btn">
+                Buy (<span id="cost-cursor">15</span>)
+              </button>
+            </div>
+
+            <div class="upgrade-card">
+              <div class="upgrade-info">
+                <h3>Plasma Prism</h3>
+                <p>+5 CPS (Spawns 3D Prism)</p>
+                <div class="upgrade-stats">Owned: <span id="count-grandma">0</span></div>
+              </div>
+              <button id="buy-grandma" class="buy-btn">
+                Buy (<span id="cost-grandma">100</span>)
+              </button>
+            </div>
+
+            <div class="upgrade-card">
+              <div class="upgrade-info">
+                <h3>Cosmic Core</h3>
+                <p>+25 CPS (Spawns 3D Core)</p>
+                <div class="upgrade-stats">Owned: <span id="count-factory">0</span></div>
+              </div>
+              <button id="buy-factory" class="buy-btn">
+                Buy (<span id="cost-factory">500</span>)
+              </button>
+            </div>
           </div>
 
-          <div class="upgrade-card">
-            <div class="upgrade-info">
-              <h3>Orbiting Drone</h3>
-              <p>+1 CPS (Spawns 3D Drone)</p>
-              <div class="upgrade-stats">Owned: <span id="count-cursor">0</span></div>
-            </div>
-            <button id="buy-cursor" class="buy-btn">
-              Buy (<span id="cost-cursor">15</span>)
-            </button>
+          <!-- Achievements Section -->
+          <div class="achievements-section">
+            <h2>Achievements (<span id="achievements-count">0/6</span>)</h2>
+            <div id="achievements-list" class="achievements-list"></div>
           </div>
+        </div>
 
-          <div class="upgrade-card">
-            <div class="upgrade-info">
-              <h3>Plasma Prism</h3>
-              <p>+5 CPS (Spawns 3D Prism)</p>
-              <div class="upgrade-stats">Owned: <span id="count-grandma">0</span></div>
+        <!-- Tab 2: Tech Tree -->
+        <div id="panel-tech" class="tab-panel hidden">
+          <h2>Automation & Synergies</h2>
+          <div class="upgrades-list">
+            <div class="upgrade-card">
+              <div class="upgrade-info">
+                <h3>Auto-Buyer Drone</h3>
+                <p>Automatically purchases the cheapest upgrade</p>
+                <div class="upgrade-stats">Status: <span id="autobuyer-status">Locked</span></div>
+              </div>
+              <button id="buy-autobuyer" class="buy-btn">
+                Buy (<span id="cost-autobuyer">1000</span>)
+              </button>
             </div>
-            <button id="buy-grandma" class="buy-btn">
-              Buy (<span id="cost-grandma">100</span>)
-            </button>
+
+            <div class="upgrade-card">
+              <div class="upgrade-info">
+                <h3>Drone Overclocking</h3>
+                <p>Drones produce +50% CPS per Prism owned</p>
+                <div class="upgrade-stats">Status: <span id="synergy1-status">Locked</span></div>
+              </div>
+              <button id="buy-synergy1" class="buy-btn">
+                Buy (<span id="cost-synergy1">2500</span>)
+              </button>
+            </div>
+
+            <div class="upgrade-card">
+              <div class="upgrade-info">
+                <h3>Prism Resonance</h3>
+                <p>Prisms boost Click Power by +5% of their total CPS</p>
+                <div class="upgrade-stats">Status: <span id="synergy2-status">Locked</span></div>
+              </div>
+              <button id="buy-synergy2" class="buy-btn">
+                Buy (<span id="cost-synergy2">10000</span>)
+              </button>
+            </div>
           </div>
+        </div>
 
-          <div class="upgrade-card">
-            <div class="upgrade-info">
-              <h3>Cosmic Core</h3>
-              <p>+25 CPS (Spawns 3D Core)</p>
-              <div class="upgrade-stats">Owned: <span id="count-factory">0</span></div>
+        <!-- Tab 3: Ascension (Prestige) -->
+        <div id="panel-ascension" class="tab-panel hidden">
+          <h2>🌌 Cosmic Ascension</h2>
+          <div class="ascension-box">
+            <p>Ascending resets your points and upgrades in exchange for <strong>Cosmic Shards</strong>.</p>
+            <p>Each Cosmic Shard provides a permanent <strong>+10% boost</strong> to all income across resets!</p>
+
+            <div class="ascension-stats">
+              <div>Earnable Shards now: <span id="ascension-shards-pending" class="highlight-gold">0</span></div>
+              <div>Current Boost: <span id="ascension-boost-current">0%</span></div>
             </div>
-            <button id="buy-factory" class="buy-btn">
-              Buy (<span id="cost-factory">500</span>)
+
+            <button id="ascend-btn" class="main-click-btn gold-btn" disabled>
+              ASCEND (Requires 50,000 Points)
             </button>
           </div>
         </div>
 
-        <!-- Achievements Section -->
-        <div class="achievements-section">
-          <h2>Achievements (<span id="achievements-count">0/6</span>)</h2>
-          <div id="achievements-list" class="achievements-list"></div>
+        <!-- Tab 4: Extended Stats Drawer -->
+        <div id="panel-stats" class="tab-panel hidden">
+          <h2>📊 Analytics & Statistics</h2>
+          <div class="detailed-stats-grid">
+            <div class="stat-card"><span>Total Clicks:</span> <strong id="stat-clicks-detailed">0</strong></div>
+            <div class="stat-card"><span>Total Earned:</span> <strong id="stat-earned-detailed">0</strong></div>
+            <div class="stat-card"><span>Clicks / Min (CPM):</span> <strong id="stat-cpm">0</strong></div>
+            <div class="stat-card"><span>Golden Crystals Clicked:</span> <strong id="stat-golden-count">0</strong></div>
+            <div class="stat-card"><span>Asteroids Destroyed:</span> <strong id="stat-asteroids-count">0</strong></div>
+            <div class="stat-card"><span>Ascensions Completed:</span> <strong id="stat-ascension-count">0</strong></div>
+          </div>
         </div>
 
         <div class="controls-section">
-          <div class="game-stats">
-            <div>Total Clicks: <span id="stat-total-clicks">0</span></div>
-            <div>Total Earned: <span id="stat-total-earned">0</span></div>
-          </div>
           <div class="control-buttons">
             <button id="save-btn" class="ctrl-btn">Save Game</button>
             <button id="reset-btn" class="ctrl-btn danger">Reset Progress</button>

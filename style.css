@@ -35,12 +35,27 @@ header {
 }
 
 header h1 {
-  font-size: 2.2rem;
+  font-size: 2rem;
   background: linear-gradient(135deg, #38bdf8, #818cf8);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   font-weight: 800;
-  margin: 0 auto;
+}
+
+.header-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.shards-badge {
+  background: rgba(129, 140, 248, 0.15);
+  border: 1px solid #818cf8;
+  color: #c084fc;
+  padding: 0.35rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
 }
 
 .icon-btn {
@@ -88,10 +103,11 @@ header h1 {
   text-align: center;
   margin-bottom: 0.75rem;
   z-index: 2;
+  width: 100%;
 }
 
 .score-display {
-  font-size: 4rem;
+  font-size: 3.5rem;
   font-weight: 900;
   color: #38bdf8;
   line-height: 1;
@@ -99,14 +115,14 @@ header h1 {
 }
 
 .sub-stats {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: #94a3b8;
   margin-top: 0.25rem;
 }
 
 .frenzy-banner {
   margin-top: 0.5rem;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   font-weight: 800;
   color: #fbbf24;
   background: rgba(251, 191, 36, 0.15);
@@ -120,6 +136,37 @@ header h1 {
   display: none;
 }
 
+/* Overcharge Gauge Bar */
+.overcharge-wrapper {
+  margin-top: 0.75rem;
+  width: 100%;
+}
+
+.overcharge-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: #f43f5e;
+  letter-spacing: 0.5px;
+  margin-bottom: 2px;
+}
+
+.overcharge-bar-bg {
+  width: 100%;
+  height: 8px;
+  background: #1e293b;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #334155;
+}
+
+.overcharge-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #f43f5e, #fbbf24);
+  width: 0%;
+  transition: width 0.15s ease-out;
+  box-shadow: 0 0 10px rgba(244, 63, 94, 0.8);
+}
+
 @keyframes pulse {
   0% { transform: scale(0.98); opacity: 0.8; }
   100% { transform: scale(1.05); opacity: 1; box-shadow: 0 0 15px rgba(251, 191, 36, 0.5); }
@@ -127,10 +174,10 @@ header h1 {
 
 .canvas-container {
   width: 100%;
-  height: 280px;
+  height: 260px;
   position: relative;
   cursor: pointer;
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
   border-radius: 12px;
   overflow: hidden;
 }
@@ -169,7 +216,7 @@ header h1 {
 .floating-number {
   position: absolute;
   font-weight: 800;
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   color: #38bdf8;
   text-shadow: 0 0 8px rgba(56, 189, 248, 0.8);
   user-select: none;
@@ -178,7 +225,7 @@ header h1 {
 
 .floating-number.golden {
   color: #fbbf24;
-  font-size: 1.6rem;
+  font-size: 1.5rem;
   text-shadow: 0 0 12px rgba(251, 191, 36, 0.9);
 }
 
@@ -197,9 +244,9 @@ header h1 {
   background: linear-gradient(135deg, #0284c7, #4f46e5);
   color: #ffffff;
   border: none;
-  padding: 0.85rem 2rem;
+  padding: 0.8rem 2rem;
   border-radius: 12px;
-  font-size: 1.1rem;
+  font-size: 1.05rem;
   font-weight: 700;
   cursor: pointer;
   box-shadow: 0 10px 20px rgba(79, 70, 229, 0.4);
@@ -214,8 +261,56 @@ header h1 {
   background: linear-gradient(135deg, #0369a1, #4338ca);
 }
 
-.main-click-btn:active {
-  transform: translateY(1px);
+.main-click-btn.gold-btn {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  box-shadow: 0 10px 20px rgba(217, 119, 6, 0.4);
+}
+
+.main-click-btn.gold-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #f59e0b, #d97706);
+}
+
+.main-click-btn:disabled {
+  background: #334155;
+  box-shadow: none;
+  color: #64748b;
+  cursor: not-allowed;
+}
+
+/* Skins & Themes Customizer Box */
+.customizer-box {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  margin-top: 0.75rem;
+  background: #0f172a;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid #1e293b;
+}
+
+.customizer-group {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.customizer-group label {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.customizer-group select {
+  background: #1e293b;
+  color: #f8fafc;
+  border: 1px solid #334155;
+  border-radius: 6px;
+  padding: 2px 6px;
+  font-size: 0.75rem;
+  outline: none;
+  cursor: pointer;
 }
 
 .shop-section {
@@ -223,22 +318,63 @@ header h1 {
   flex-direction: column;
 }
 
+/* Shop Tabs */
+.shop-tabs {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.85rem;
+  border-bottom: 1px solid #334155;
+  padding-bottom: 0.4rem;
+}
+
+.tab-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.4rem 0.65rem;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.tab-btn:hover {
+  color: #f8fafc;
+  background: #1e293b;
+}
+
+.tab-btn.active {
+  color: #38bdf8;
+  background: #0f172a;
+  border: 1px solid #334155;
+}
+
+.tab-btn.prestige-tab.active {
+  color: #fbbf24;
+  border-color: #d97706;
+}
+
+.tab-panel.hidden {
+  display: none;
+}
+
 .shop-section h2 {
-  font-size: 1.2rem;
-  margin-bottom: 0.75rem;
+  font-size: 1.15rem;
+  margin-bottom: 0.65rem;
   color: #cbd5e1;
 }
 
 .upgrades-list {
   display: flex;
   flex-direction: column;
-  gap: 0.65rem;
-  margin-bottom: 1rem;
+  gap: 0.6rem;
+  margin-bottom: 0.85rem;
 }
 
 .upgrade-card {
   background: #0f172a;
-  padding: 0.75rem 1rem;
+  padding: 0.65rem 0.85rem;
   border-radius: 10px;
   border: 1px solid #334155;
   display: flex;
@@ -247,17 +383,17 @@ header h1 {
 }
 
 .upgrade-info h3 {
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   color: #f1f5f9;
 }
 
 .upgrade-info p {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: #64748b;
 }
 
 .upgrade-stats {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: #38bdf8;
   margin-top: 0.15rem;
 }
@@ -266,9 +402,9 @@ header h1 {
   background-color: #059669;
   color: #ffffff;
   border: none;
-  padding: 0.5rem 0.85rem;
+  padding: 0.45rem 0.8rem;
   font-weight: 600;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   border-radius: 6px;
   cursor: pointer;
   transition: background-color 0.2s;
@@ -284,25 +420,75 @@ header h1 {
   cursor: not-allowed;
 }
 
+/* Ascension Box */
+.ascension-box {
+  background: #0f172a;
+  border: 1px solid #d97706;
+  border-radius: 12px;
+  padding: 1.25rem;
+  text-align: center;
+}
+
+.ascension-box p {
+  font-size: 0.85rem;
+  color: #cbd5e1;
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+.ascension-stats {
+  display: flex;
+  justify-content: space-around;
+  margin: 1rem 0;
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.highlight-gold {
+  color: #fbbf24;
+}
+
+/* Detailed Stats Dashboard Grid */
+.detailed-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.6rem;
+}
+
+.stat-card {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.78rem;
+  display: flex;
+  justify-content: space-between;
+  color: #94a3b8;
+}
+
+.stat-card strong {
+  color: #38bdf8;
+}
+
 /* Achievements Section */
 .achievements-section {
-  margin-bottom: 1rem;
+  margin-bottom: 0.75rem;
 }
 
 .achievements-list {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .achievement-card {
   background: #0f172a;
   border: 1px solid #1e293b;
   border-radius: 8px;
-  padding: 0.5rem 0.6rem;
+  padding: 0.45rem 0.55rem;
   display: flex;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.4rem;
   opacity: 0.4;
   filter: grayscale(1);
   transition: all 0.3s ease;
@@ -316,16 +502,16 @@ header h1 {
 }
 
 .achievement-icon {
-  font-size: 1.2rem;
+  font-size: 1.1rem;
 }
 
 .achievement-details h4 {
-  font-size: 0.78rem;
+  font-size: 0.75rem;
   color: #f8fafc;
 }
 
 .achievement-details p {
-  font-size: 0.68rem;
+  font-size: 0.65rem;
   color: #64748b;
 }
 
@@ -411,16 +597,8 @@ header h1 {
 
 .controls-section {
   margin-top: auto;
-  padding-top: 1rem;
+  padding-top: 0.75rem;
   border-top: 1px solid #334155;
-}
-
-.game-stats {
-  font-size: 0.85rem;
-  color: #94a3b8;
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 0.75rem;
 }
 
 .control-buttons {
@@ -433,9 +611,9 @@ header h1 {
   background: #334155;
   color: #f8fafc;
   border: none;
-  padding: 0.5rem;
+  padding: 0.45rem;
   border-radius: 6px;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   cursor: pointer;
 }
 
