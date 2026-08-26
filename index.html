@@ -12,6 +12,9 @@
   <div class="game-container">
     <header>
       <h1>3D Counter Clicker Game</h1>
+      <div class="header-controls">
+        <button id="sfx-toggle" class="icon-btn" title="Toggle Sound Effects">🔊 SFX On</button>
+      </div>
     </header>
 
     <main class="game-layout">
@@ -23,11 +26,13 @@
             <span id="cps-display">0 per sec</span> •
             <span id="click-power-display">+1 per click</span>
           </div>
+          <div id="frenzy-banner" class="frenzy-banner hidden">✨ FRENZY 7X MULTIPLIER! ✨</div>
         </div>
 
         <!-- 3D Canvas Viewport -->
         <div id="canvas-container" class="canvas-container">
           <div class="canvas-hint">Click the 3D Crystal!</div>
+          <div id="floating-text-container" class="floating-text-container"></div>
         </div>
 
         <button id="click-btn" class="main-click-btn">CLICK 3D CRYSTAL</button>
@@ -82,6 +87,12 @@
           </div>
         </div>
 
+        <!-- Achievements Section -->
+        <div class="achievements-section">
+          <h2>Achievements (<span id="achievements-count">0/6</span>)</h2>
+          <div id="achievements-list" class="achievements-list"></div>
+        </div>
+
         <div class="controls-section">
           <div class="game-stats">
             <div>Total Clicks: <span id="stat-total-clicks">0</span></div>
@@ -94,6 +105,19 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Offline Earnings Modal -->
+  <div id="modal-overlay" class="modal-overlay hidden">
+    <div class="modal-card">
+      <h2>Welcome Back! 🚀</h2>
+      <p id="modal-desc">While you were away, your satellites generated income!</p>
+      <div id="modal-amount" class="modal-amount">+0</div>
+      <button id="modal-claim-btn" class="main-click-btn">Claim Points</button>
+    </div>
   </div>
 
   <script src="script.js"></script>
