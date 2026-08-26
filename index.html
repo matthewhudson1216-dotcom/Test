@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Counter Clicker Game</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Three.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+  <div class="game-container">
+    <header>
+      <h1>3D Counter Clicker Game</h1>
+    </header>
+
+    <main class="game-layout">
+      <!-- 3D Viewport & Clicker Section -->
+      <section class="clicker-section">
+        <div class="score-board">
+          <div id="score" class="score-display">0</div>
+          <div class="sub-stats">
+            <span id="cps-display">0 per sec</span> •
+            <span id="click-power-display">+1 per click</span>
+          </div>
+        </div>
+
+        <!-- 3D Canvas Viewport -->
+        <div id="canvas-container" class="canvas-container">
+          <div class="canvas-hint">Click the 3D Crystal!</div>
+        </div>
+
+        <button id="click-btn" class="main-click-btn">CLICK 3D CRYSTAL</button>
+      </section>
+
+      <!-- Shop & Upgrades Section -->
+      <section class="shop-section">
+        <h2>3D Upgrades & Satellites</h2>
+        <div class="upgrades-list">
+          <div class="upgrade-card">
+            <div class="upgrade-info">
+              <h3>Click Multiplier</h3>
+              <p>+1 point per click</p>
+              <div class="upgrade-stats">Owned: <span id="count-multiplier">0</span></div>
+            </div>
+            <button id="buy-multiplier" class="buy-btn">
+              Buy (<span id="cost-multiplier">10</span>)
+            </button>
+          </div>
+
+          <div class="upgrade-card">
+            <div class="upgrade-info">
+              <h3>Orbiting Drone</h3>
+              <p>+1 CPS (Spawns 3D Drone)</p>
+              <div class="upgrade-stats">Owned: <span id="count-cursor">0</span></div>
+            </div>
+            <button id="buy-cursor" class="buy-btn">
+              Buy (<span id="cost-cursor">15</span>)
+            </button>
+          </div>
+
+          <div class="upgrade-card">
+            <div class="upgrade-info">
+              <h3>Plasma Prism</h3>
+              <p>+5 CPS (Spawns 3D Prism)</p>
+              <div class="upgrade-stats">Owned: <span id="count-grandma">0</span></div>
+            </div>
+            <button id="buy-grandma" class="buy-btn">
+              Buy (<span id="cost-grandma">100</span>)
+            </button>
+          </div>
+
+          <div class="upgrade-card">
+            <div class="upgrade-info">
+              <h3>Cosmic Core</h3>
+              <p>+25 CPS (Spawns 3D Core)</p>
+              <div class="upgrade-stats">Owned: <span id="count-factory">0</span></div>
+            </div>
+            <button id="buy-factory" class="buy-btn">
+              Buy (<span id="cost-factory">500</span>)
+            </button>
+          </div>
+        </div>
+
+        <div class="controls-section">
+          <div class="game-stats">
+            <div>Total Clicks: <span id="stat-total-clicks">0</span></div>
+            <div>Total Earned: <span id="stat-total-earned">0</span></div>
+          </div>
+          <div class="control-buttons">
+            <button id="save-btn" class="ctrl-btn">Save Game</button>
+            <button id="reset-btn" class="ctrl-btn danger">Reset Progress</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
