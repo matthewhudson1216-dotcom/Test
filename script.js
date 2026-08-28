@@ -35,6 +35,8 @@ let gameState = {
 let isAimingDownSights = false;
 let isReloadingAnimation = 0; // 0 to 1
 let isSprinting = false;
+let isHoldingBreath = false;
+let adsSwayTimer = 0;
 let isJumping = false;
 let playerYVel = 0;
 let knifeAnimFrame = 0;
@@ -69,7 +71,10 @@ let keysPressed = { KeyW: false, KeyA: false, KeyS: false, KeyD: false };
 const moveSpeed = 0.08;
 let mouseSensitivity = parseFloat(localStorage.getItem('cop_sens') || '1.0') * 0.002;
 let baseFOV = parseInt(localStorage.getItem('cop_fov') || '65', 10);
+let masterVolume = parseInt(localStorage.getItem('cop_vol_master') || '100', 10) / 100;
 let sfxVolume = parseInt(localStorage.getItem('cop_vol') || '100', 10) / 100;
+let voiceVolume = parseInt(localStorage.getItem('cop_vol_voice') || '100', 10) / 100;
+let musicVolume = parseInt(localStorage.getItem('cop_vol_music') || '100', 10) / 100;
 
 // Web Audio API Sound Synthesizer
 let audioCtx = null;
@@ -108,7 +113,7 @@ function playVoiceCallout(calloutType) {
     try {
       window.speechSynthesis.cancel();
       const utterance = new SpeechSynthesisUtterance(text);
-      utterance.volume = Math.min(1.0, sfxVolume);
+      utterance.volume = Math.min(1.0, sfxVolume * masterVolume * voiceVolume);
       utterance.pitch = calloutType.startsWith('swat') ? 0.95 : 0.75;
       utterance.rate = 1.15;
       window.speechSynthesis.speak(utterance);
@@ -128,7 +133,7 @@ function playSound(type) {
   const gain = audioCtx.createGain();
   osc.connect(gain);
   gain.connect(audioCtx.destination);
-  const volMult = sfxVolume;
+  const volMult = sfxVolume * masterVolume;
 
   const now = audioCtx.currentTime;
 
@@ -340,8 +345,43 @@ let swatPartnerMesh = null;
 let swatPartnerTimer = 0;
 let enemiesToSpawnInRound = 0;
 let raycaster, mouse;
+let roundStats = { shotsFired: 0, shotsHit: 0, headshots: 0, damageDealt: 0, cashEarned: 0 };
+const roundStatsModal = document.getElementById('round-stats-modal');
+const closeStatsBtn = document.getElementById('close-stats-btn');
 let isGameStarted = false;
 let isReloading = false;
+let isVaultDefenseActive = false;
+let vaultHp = 500;
+let vaultMesh = null;
+let lastRadioTime = 0;
+
+function playRadioChatter(messageText) {
+  if (gameState.sfxMuted || sfxVolume <= 0 || masterVolume <= 0) return;
+  initAudio();
+  if (!audioCtx) return;
+  if (audioCtx.state === 'suspended') audioCtx.resume();
+
+  const now = audioCtx.currentTime;
+  if (now - lastRadioTime < 3.0) return;
+  lastRadioTime = now;
+
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = 'square';
+  osc.frequency.setValueAtTime(1200, now);
+  osc.frequency.setValueAtTime(800, now + 0.04);
+  gain.gain.setValueAtTime(0.12 * sfxVolume * masterVolume, now);
+  gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
+
+  osc.connect(gain);
+  gain.connect(audioCtx.destination);
+  osc.start(now);
+  osc.stop(now + 0.08);
+
+  if (messageText) {
+    showToast(`📻 [DISPATCH]: "${messageText}"`);
+  }
+}
 const mainMenuModal = document.getElementById('main-menu-modal');
 const startGameBtn = document.getElementById('start-game-btn');
 
@@ -1591,15 +1631,24 @@ function animate() {
       }
     }
 
+    let adsSwayX = 0;
+    let adsSwayY = 0;
+    if (isAimingDownSights) {
+      adsSwayTimer += isHoldingBreath ? 0.02 : 0.06;
+      const swayMult = isHoldingBreath ? 0.001 : 0.006;
+      adsSwayX = Math.sin(adsSwayTimer) * swayMult;
+      adsSwayY = Math.cos(adsSwayTimer * 2) * swayMult;
+    }
+
     // Target X position: centered (0) in ADS mode, offset to right when hip-firing
     const targetX = isAimingDownSights ? 0 : (gameState.equippedWeapon === 'shotgun' ? 0.26 : 0.24);
-    currentWeaponMesh.position.x += (targetX + sideBobOffset + gunAnimX - currentWeaponMesh.position.x) * 0.2;
+    currentWeaponMesh.position.x += (targetX + sideBobOffset + gunAnimX + adsSwayX - currentWeaponMesh.position.x) * 0.2;
 
     // Adjust Y position during ADS so iron sights / Red Dot Sight align directly with center eye line
     const basePosY = gameState.equippedWeapon === 'shotgun' ? -0.24 : -0.22;
     const adsYOffset = isAimingDownSights ? (gameState.attachments.reddot ? 0.07 : 0.04) : 0;
 
-    currentWeaponMesh.position.y = basePosY + adsYOffset + bobOffset + gunAnimY - weaponRecoil * 0.06 - isReloadingAnimation * 0.15;
+    currentWeaponMesh.position.y = basePosY + adsYOffset + bobOffset + gunAnimY + adsSwayY - weaponRecoil * 0.06 - isReloadingAnimation * 0.15;
     currentWeaponMesh.position.z = (gameState.equippedWeapon === 'pistol' ? -0.45 : -0.52) + weaponRecoil * 0.12;
     currentWeaponMesh.rotation.x = weaponRecoil * 0.35 + isReloadingAnimation * 0.6 + gunAnimRotX;
     currentWeaponMesh.rotation.y = sideBobOffset * 0.5;
@@ -1988,8 +2037,12 @@ function handleShooterClick(event) {
       spawnSparkParticles(targetPoint, wpnDef.color);
       fireBulletTracer(targetPoint, wpnDef.color);
 
+  roundStats.shotsFired += 1;
+
       if (hitEnemyIndex !== -1) {
         const enemy = activeEnemies[hitEnemyIndex];
+    roundStats.shotsHit += 1;
+    if (hitBodyPart === 'head') roundStats.headshots += 1;
 
         let mult = 1.0;
         if (hitBodyPart === 'head') mult = 2.0;
@@ -1998,6 +2051,7 @@ function handleShooterClick(event) {
         const appliedDamage = Math.round(wpnDef.damage * mult);
         enemy.hp -= appliedDamage;
         enemy.hitRecoil = 1.0;
+        spawnBodyHitParticles(targetPoint, hitBodyPart === 'head');
 
         if (enemy.hp <= 0) {
           scene.remove(enemy.mesh);
@@ -2020,6 +2074,7 @@ function handleShooterClick(event) {
     ejectShellCasing();
   } else {
     // Single Bullet Firing (Pistol / SMG / Rifle)
+    roundStats.shotsFired += 1;
     let targetPoint = raycaster.ray.at(30, new THREE.Vector3());
     let hitEnemyIndex = -1;
     let hitBodyPart = 'torso';
@@ -2051,20 +2106,24 @@ function handleShooterClick(event) {
 
     if (hitEnemyIndex !== -1) {
       const enemy = activeEnemies[hitEnemyIndex];
+      roundStats.shotsHit += 1;
 
       let mult = 1.0;
       let label = '';
       if (hitBodyPart === 'head') {
         mult = 2.0;
         label = 'CRITICAL HEADSHOT! ';
+        roundStats.headshots += 1;
       } else if (hitBodyPart === 'limb') {
         mult = 0.75;
         label = 'LIMB HIT ';
       }
 
       const appliedDamage = Math.round(wpnDef.damage * mult);
+      roundStats.damageDealt += appliedDamage;
       enemy.hp -= appliedDamage;
       enemy.hitRecoil = 1.0;
+      spawnBodyHitParticles(targetPoint, hitBodyPart === 'head');
 
       spawnFloatingText(`${label}-${appliedDamage}`, screenCenterX, screenCenterY, hitBodyPart === 'head');
 
@@ -2092,6 +2151,28 @@ function handleShooterClick(event) {
   }
 
   updateUI();
+}
+
+function spawnBodyHitParticles(hitPoint, isHeadshot) {
+  if (!scene) return;
+  const count = isHeadshot ? 10 : 6;
+  const color = isHeadshot ? 0xfbbf24 : 0xdc2626;
+
+  for (let i = 0; i < count; i++) {
+    const geom = new THREE.BufferGeometry();
+    geom.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0], 3));
+    const mat = new THREE.PointsMaterial({ color, size: isHeadshot ? 0.12 : 0.09, transparent: true, opacity: 0.95 });
+    const p = new THREE.Points(geom, mat);
+    p.position.copy(hitPoint);
+    scene.add(p);
+
+    const vel = new THREE.Vector3(
+      (Math.random() - 0.5) * 0.35,
+      Math.random() * 0.35,
+      (Math.random() - 0.5) * 0.35
+    );
+    activeProjectiles.push({ mesh: p, velocity: vel, life: 12 });
+  }
 }
 
 function spawnSparkParticles(hitPoint, hexColor) {
@@ -2380,15 +2461,46 @@ function checkDestructibleHit(hitObject, damage) {
   }
 }
 
+function showAfterActionReport(roundBonus) {
+  if (document.exitPointerLock) document.exitPointerLock();
+
+  const acc = Math.round((roundStats.shotsHit / Math.max(1, roundStats.shotsFired)) * 100);
+
+  let medal = '🎖️ SHIFT MVP';
+  if (roundStats.headshots >= 3 || acc >= 70) medal = '🎯 SHARPSHOOTER AWARD';
+  else if (isVaultDefenseActive) medal = '🛡️ VAULT GUARDIAN AWARD';
+
+  document.getElementById('stat-shots').textContent = roundStats.shotsFired;
+  document.getElementById('stat-accuracy').textContent = `${acc}%`;
+  document.getElementById('stat-headshots').textContent = roundStats.headshots;
+  document.getElementById('stat-damage').textContent = roundStats.damageDealt;
+  document.getElementById('stat-cash').textContent = `$${roundBonus}`;
+  document.getElementById('stat-medal').textContent = medal;
+
+  if (roundStatsModal) roundStatsModal.classList.remove('hidden');
+
+  roundStats = { shotsFired: 0, shotsHit: 0, headshots: 0, damageDealt: 0, cashEarned: 0 };
+}
+
 function checkRoundStatus() {
   if (gameState.isRoundActive && activeEnemies.length === 0 && enemiesToSpawnInRound === 0) {
     gameState.isRoundActive = false;
-    const roundBonus = 300 + gameState.round * 150;
+    let roundBonus = 300 + gameState.round * 150;
+
+    if (isVaultDefenseActive && vaultHp > 0) {
+      roundBonus += 800;
+      showToast('🏦 VAULT DEFENDED INTACT! Earned +$800 Vault Defense Bonus!');
+      playRadioChatter('Vault secure! Outstanding precinct defense officer!');
+      if (vaultMesh) scene.remove(vaultMesh);
+      vaultMesh = null;
+      isVaultDefenseActive = false;
+    }
+
     gameState.cash += roundBonus;
     gameState.round += 1;
 
     showToast(`🎉 ROUND COMPLETED! Earned +$${roundBonus} Intermission Bonus!`);
-    openBuyMenu();
+    showAfterActionReport(roundBonus);
     updateUI();
   }
 }
@@ -2466,6 +2578,12 @@ function restartGame() {
 }
 
 function setupEventListeners() {
+  if (closeStatsBtn) {
+    closeStatsBtn.addEventListener('click', () => {
+      if (roundStatsModal) roundStatsModal.classList.add('hidden');
+      openBuyMenu();
+    });
+  }
   if (startGameBtn) {
     startGameBtn.addEventListener('click', () => {
       isGameStarted = true;
@@ -2567,6 +2685,13 @@ function setupEventListeners() {
     stopAutoFire();
   });
 
+  window.addEventListener('keyup', (e) => {
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+      isSprinting = false;
+      isHoldingBreath = false;
+    }
+  });
+
   // Pointer Lock & 3D Mouse Look Event Listeners
   document.addEventListener('pointerlockchange', () => {
     isPointerLocked = (document.pointerLockElement === canvasContainer);
@@ -2595,7 +2720,12 @@ function setupEventListeners() {
     }
 
     if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
-      if (!isGameExited) {
+      if (isAimingDownSights) {
+        if (!isHoldingBreath) {
+          isHoldingBreath = true;
+          showToast('🫁 HOLDING BREATH (Weapon Stabilized)');
+        }
+      } else if (!isGameExited) {
         isSprinting = true;
       }
       return;
@@ -2884,6 +3014,20 @@ function setupEventListeners() {
     });
   }
 
+  const settingVolMaster = document.getElementById('setting-vol-master');
+  const valVolMaster = document.getElementById('val-vol-master');
+  if (settingVolMaster) {
+    const initVal = localStorage.getItem('cop_vol_master') || '100';
+    settingVolMaster.value = initVal;
+    if (valVolMaster) valVolMaster.textContent = initVal;
+    settingVolMaster.addEventListener('input', (e) => {
+      const val = e.target.value;
+      if (valVolMaster) valVolMaster.textContent = val;
+      masterVolume = parseInt(val, 10) / 100;
+      localStorage.setItem('cop_vol_master', val);
+    });
+  }
+
   if (settingVol) {
     const initVolVal = localStorage.getItem('cop_vol') || '100';
     settingVol.value = initVolVal;
@@ -2894,6 +3038,34 @@ function setupEventListeners() {
       if (valVol) valVol.textContent = val;
       sfxVolume = parseInt(val, 10) / 100;
       localStorage.setItem('cop_vol', val);
+    });
+  }
+
+  const settingVolVoice = document.getElementById('setting-vol-voice');
+  const valVolVoice = document.getElementById('val-vol-voice');
+  if (settingVolVoice) {
+    const initVal = localStorage.getItem('cop_vol_voice') || '100';
+    settingVolVoice.value = initVal;
+    if (valVolVoice) valVolVoice.textContent = initVal;
+    settingVolVoice.addEventListener('input', (e) => {
+      const val = e.target.value;
+      if (valVolVoice) valVolVoice.textContent = val;
+      voiceVolume = parseInt(val, 10) / 100;
+      localStorage.setItem('cop_vol_voice', val);
+    });
+  }
+
+  const settingVolMusic = document.getElementById('setting-vol-music');
+  const valVolMusic = document.getElementById('val-vol-music');
+  if (settingVolMusic) {
+    const initVal = localStorage.getItem('cop_vol_music') || '100';
+    settingVolMusic.value = initVal;
+    if (valVolMusic) valVolMusic.textContent = initVal;
+    settingVolMusic.addEventListener('input', (e) => {
+      const val = e.target.value;
+      if (valVolMusic) valVolMusic.textContent = val;
+      musicVolume = parseInt(val, 10) / 100;
+      localStorage.setItem('cop_vol_music', val);
     });
   }
 }

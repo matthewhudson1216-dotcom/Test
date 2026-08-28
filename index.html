@@ -82,7 +82,7 @@
             <span class="key-badge">MOUSE</span> Look &nbsp;•&nbsp;
             <span class="key-badge">WASD</span> Move &nbsp;•&nbsp;
             <span class="key-badge">CLICK</span> Fire &nbsp;•&nbsp;
-            <span class="key-badge">SHIFT</span> Sprint &nbsp;•&nbsp;
+            <span class="key-badge">SHIFT</span> Sprint / Hold Breath &nbsp;•&nbsp;
             <span class="key-badge">SPACE</span> Jump &nbsp;•&nbsp;
             <span class="key-badge">V</span> Melee &nbsp;•&nbsp;
             <span class="key-badge">C</span> Crouch &nbsp;•&nbsp;
@@ -283,8 +283,20 @@
           <input type="range" id="setting-fov" min="50" max="90" step="1" value="65">
         </div>
         <div class="setting-item">
+          <label for="setting-vol-master">Master Volume: <span id="val-vol-master">100</span>%</label>
+          <input type="range" id="setting-vol-master" min="0" max="100" step="5" value="100">
+        </div>
+        <div class="setting-item">
           <label for="setting-vol">SFX Volume: <span id="val-vol">100</span>%</label>
           <input type="range" id="setting-vol" min="0" max="100" step="5" value="100">
+        </div>
+        <div class="setting-item">
+          <label for="setting-vol-voice">Voice Chatter Volume: <span id="val-vol-voice">100</span>%</label>
+          <input type="range" id="setting-vol-voice" min="0" max="100" step="5" value="100">
+        </div>
+        <div class="setting-item">
+          <label for="setting-vol-music">Music Volume: <span id="val-vol-music">100</span>%</label>
+          <input type="range" id="setting-vol-music" min="0" max="100" step="5" value="100">
         </div>
       </div>
 
@@ -293,6 +305,23 @@
         <button id="resume-game-btn" class="pause-btn resume">▶️ RESUME GAME</button>
         <button id="exit-game-btn" class="pause-btn danger">🚪 EXIT GAME</button>
       </div>
+    </div>
+  </div>
+
+  <!-- End-of-Round Stats Modal -->
+  <div id="round-stats-modal" class="modal-overlay hidden">
+    <div class="stats-card">
+      <h2>📊 AFTER ACTION REPORT</h2>
+      <p class="stats-subtitle">Round Debriefing & Tactical Performance Breakdown</p>
+      <div class="stats-grid">
+        <div class="stat-box"><span>Shots Fired:</span><strong id="stat-shots">0</strong></div>
+        <div class="stat-box"><span>Accuracy:</span><strong id="stat-accuracy">0%</strong></div>
+        <div class="stat-box"><span>Headshots:</span><strong id="stat-headshots">0</strong></div>
+        <div class="stat-box"><span>Damage Dealt:</span><strong id="stat-damage">0</strong></div>
+        <div class="stat-box"><span>Cash Earned:</span><strong id="stat-cash">$0</strong></div>
+        <div class="stat-box medal-box"><span>MVP Award:</span><strong id="stat-medal">🎖️ EXCELLENT WORK</strong></div>
+      </div>
+      <button id="close-stats-btn" class="main-deploy-btn">🛍️ PROCEED TO ARMORY</button>
     </div>
   </div>
 
