@@ -96,6 +96,9 @@ function initAudio() {
 }
 
 function playVoiceCallout(calloutType) {
+  if (gameState.swatPartnerMode === 'solo' && calloutType.startsWith('swat')) {
+    return;
+  }
   if (gameState.sfxMuted || sfxVolume <= 0) return;
   initAudio();
 
@@ -385,6 +388,9 @@ function playRadioChatter(messageText) {
 }
 const mainMenuModal = document.getElementById('main-menu-modal');
 const startGameBtn = document.getElementById('start-game-btn');
+const gameOverModal = document.getElementById('game-over-modal');
+const reviveBtn = document.getElementById('revive-btn');
+const restartMissionBtn = document.getElementById('restart-mission-btn');
 
 // FPS 3D Weapon Variables
 let fpsWeaponGroup;
@@ -1989,11 +1995,18 @@ function damagePlayer(amount) {
 
   if (gameState.health <= 0) {
     gameState.isRoundActive = false;
-    showToast('💀 YOU WERE ELIMINATED! Precinct Medics Rescued You.');
-    gameState.health = 100;
-    gameState.armor = 0;
-    activeEnemies.forEach(e => scene.remove(e.mesh));
-    activeEnemies = [];
+    if (document.exitPointerLock) document.exitPointerLock();
+    if (gameOverModal) gameOverModal.classList.remove('hidden');
+
+    if (reviveBtn) {
+      if (gameState.cash >= 10000) {
+        reviveBtn.disabled = false;
+        reviveBtn.textContent = '🚑 RESCUE & REVIVE ($10,000)';
+      } else {
+        reviveBtn.disabled = true;
+        reviveBtn.textContent = '🚑 REVIVE UNAVAILABLE (Need $10,000)';
+      }
+    }
     updateUI();
   }
 }
@@ -2621,6 +2634,28 @@ function restartGame() {
 }
 
 function setupEventListeners() {
+  if (reviveBtn) {
+    reviveBtn.addEventListener('click', () => {
+      if (gameState.cash >= 10000) {
+        gameState.cash -= 10000;
+        gameState.health = gameState.maxHealth;
+        gameState.armor = gameState.maxArmor;
+        gameState.isRoundActive = true;
+        if (gameOverModal) gameOverModal.classList.add('hidden');
+        canvasContainer.requestPointerLock();
+        playSound('buy');
+        showToast('🚑 RESCUED & REVIVED! Funds Remaining: $' + gameState.cash);
+        updateUI();
+      }
+    });
+  }
+
+  if (restartMissionBtn) {
+    restartMissionBtn.addEventListener('click', () => {
+      if (gameOverModal) gameOverModal.classList.add('hidden');
+      restartGame();
+    });
+  }
   const menuPartnerSelect = document.getElementById('menu-partner-select');
   const settingPartnerSelect = document.getElementById('setting-partner-select');
 
