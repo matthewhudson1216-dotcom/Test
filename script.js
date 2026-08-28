@@ -356,6 +356,7 @@ let barricadeObstacles = [];
 let currentMap = 'street';
 let obstacleMeshes = [];
 let destructibleMeshes = [];
+let activeHostage = null;
 let swatPartnerMesh = null;
 let swatPartnerTimer = 0;
 let enemiesToSpawnInRound = 0;
@@ -2636,7 +2637,7 @@ function restartGame() {
   isPaused = false;
   exitScreen.classList.add('hidden');
 
-  // Reset Game State
+  // Full Fresh Reset of Game State
   gameState = {
     cash: 800,
     health: 100,
@@ -2646,10 +2647,16 @@ function restartGame() {
     round: 1,
     isRoundActive: false,
     sfxMuted: gameState.sfxMuted,
+    xp: 0,
+    rank: '🎖️ CADET',
     inventory: { pistol: true, smg: false, shotgun: false, rifle: false },
+    attachments: { reddot: false, laser: false },
+    camos: { black: true, urban: true, gold: false },
+    equippedCamo: 'black',
     equippedWeapon: 'pistol',
     hasKevlarHelmet: false,
     swatPartnerMode: gameState.swatPartnerMode,
+    grenades: 2,
     ammo: {
       pistol: { clip: 12, maxClip: 12, reserve: Infinity },
       smg: { clip: 30, maxClip: 30, reserve: 120 },
@@ -2658,17 +2665,26 @@ function restartGame() {
     }
   };
 
+  if (rankBadgeEl) rankBadgeEl.textContent = '🎖️ CADET';
+
   playerPos = { x: 0, y: -0.9, z: 4.2 };
   cameraRotation = { yaw: 0, pitch: 0 };
-  copPlayerMesh.position.set(playerPos.x, playerPos.y, playerPos.z);
+  if (copPlayerMesh) copPlayerMesh.position.set(playerPos.x, playerPos.y, playerPos.z);
   updateCameraTransform();
 
   activeEnemies.forEach(e => scene.remove(e.mesh));
   activeEnemies = [];
 
+  if (activeHostage && activeHostage.mesh) scene.remove(activeHostage.mesh);
+  activeHostage = null;
+
+  if (vaultMesh) scene.remove(vaultMesh);
+  vaultMesh = null;
+  isVaultDefenseActive = false;
+
   updateFPSWeaponMesh();
   updateUI();
-  showToast('🚨 Back on Duty! Good luck Officer.');
+  showToast('🚨 MISSION RESTARTED: Back on Duty with Service Pistol!');
 }
 
 function setupEventListeners() {
