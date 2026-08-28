@@ -582,6 +582,30 @@ header h1 {
   display: none;
 }
 
+/* Low Health Blood Splatter Screen Overlay */
+.blood-splatter-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background: radial-gradient(circle, transparent 40%, rgba(185, 28, 28, 0.6) 90%);
+  border: 8px solid rgba(220, 38, 38, 0.85);
+  box-shadow: inset 0 0 80px rgba(185, 28, 28, 0.8);
+  z-index: 14;
+  animation: bloodPulse 1.2s infinite ease-in-out;
+}
+
+@keyframes bloodPulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 0.95; }
+}
+
+.blood-splatter-overlay.hidden {
+  display: none;
+}
+
 /* Night Vision Goggles Phosphor Green Overlay */
 .nvg-overlay {
   position: absolute;

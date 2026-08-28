@@ -24,6 +24,7 @@ let gameState = {
   rank: 'CADET',
   camos: { black: true, urban: true, gold: false },
   equippedCamo: 'black',
+  hasKevlarHelmet: false,
   swatPartnerMode: 'squad',
   ammo: {
     pistol: { clip: 12, maxClip: 12, reserve: Infinity },
@@ -141,7 +142,15 @@ function playSound(type) {
 
   const now = audioCtx.currentTime;
 
-  if (type === 'pistol') {
+  if (type === 'heartbeat') {
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(80, now);
+    osc.frequency.exponentialRampToValueAtTime(40, now + 0.12);
+    gain.gain.setValueAtTime(0.3 * volMult, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+    osc.start(now);
+    osc.stop(now + 0.12);
+  } else if (type === 'pistol') {
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(500, now);
     osc.frequency.exponentialRampToValueAtTime(80, now + 0.08);
@@ -299,6 +308,8 @@ const hudGrenades = document.getElementById('hud-grenades');
 const canvasContainer = document.getElementById('canvas-container');
 const floatingContainer = document.getElementById('floating-text-container');
 const damageVignetteEl = document.getElementById('damage-vignette');
+const bloodSplatterEl = document.getElementById('blood-splatter-overlay');
+let heartbeatTimer = 0;
 const hitmarkerEl = document.getElementById('hitmarker');
 
 const pauseHeaderBtn = document.getElementById('pause-btn');
@@ -1507,6 +1518,17 @@ function animate() {
     }
   }
 
+  // Low Health Blood Splatter Overlay & Heartbeat Sound
+  if (gameState.health > 0 && (gameState.health / gameState.maxHealth) <= 0.3) {
+    if (bloodSplatterEl) bloodSplatterEl.classList.remove('hidden');
+    heartbeatTimer++;
+    if (heartbeatTimer % 45 === 0) {
+      playSound('heartbeat');
+    }
+  } else {
+    if (bloodSplatterEl) bloodSplatterEl.classList.add('hidden');
+  }
+
   // Smooth weapon recoil decay & movement weapon bobbing
   if (weaponRecoil > 0) weaponRecoil *= 0.82;
   if (muzzleFlashPoint && muzzleFlashPoint.intensity > 0) muzzleFlashPoint.intensity *= 0.7;
@@ -1822,8 +1844,18 @@ function animate() {
 
         // Apply continuous melee damage on attack interval (every 35 frames)
         if (enemy.meleeCooldown % 35 === 0) {
-          damagePlayer(10);
-          playSound('hit');
+          if (enemy.type === 'shield') {
+            damagePlayer(18, enemy.mesh.position);
+            playSound('hit');
+            showToast('🛡️ SHIELD BASHED! Knocked back!');
+            const pushDir = new THREE.Vector3(playerPos.x, -0.9, playerPos.z).sub(enemy.mesh.position).normalize();
+            playerPos.x += pushDir.x * 0.45;
+            playerPos.z += pushDir.z * 0.45;
+            cameraRotation.pitch += 0.15;
+          } else {
+            damagePlayer(10, enemy.mesh.position);
+            playSound('hit');
+          }
         }
       } else {
         // Reset arm elevation when not in melee range
@@ -1976,6 +2008,9 @@ function renderRadar() {
 }
 
 function damagePlayer(amount) {
+  if (gameState.hasKevlarHelmet) {
+    amount = Math.round(amount * 0.75);
+  }
   let remainingDamage = amount;
   if (gameState.armor > 0) {
     const armorAbsorb = Math.min(gameState.armor, Math.floor(amount * 0.8));
@@ -2611,10 +2646,13 @@ function restartGame() {
     round: 1,
     isRoundActive: false,
     sfxMuted: gameState.sfxMuted,
-    inventory: { pistol: true, shotgun: false, rifle: false },
+    inventory: { pistol: true, smg: false, shotgun: false, rifle: false },
     equippedWeapon: 'pistol',
+    hasKevlarHelmet: false,
+    swatPartnerMode: gameState.swatPartnerMode,
     ammo: {
       pistol: { clip: 12, maxClip: 12, reserve: Infinity },
+      smg: { clip: 30, maxClip: 30, reserve: 120 },
       shotgun: { clip: 6, maxClip: 6, reserve: 24 },
       rifle: { clip: 30, maxClip: 30, reserve: 90 }
     }
@@ -2691,6 +2729,26 @@ function setupEventListeners() {
   const camoBlackBtn = document.getElementById('camo-black-btn');
   const camoUrbanBtn = document.getElementById('camo-urban-btn');
   const camoGoldBtn = document.getElementById('camo-gold-btn');
+
+  const buyKevlarHelmetBtn = document.getElementById('buy-kevlar-helmet');
+  if (buyKevlarHelmetBtn) {
+    buyKevlarHelmetBtn.addEventListener('click', () => {
+      if (!gameState.hasKevlarHelmet) {
+        if (gameState.cash >= 400) {
+          gameState.cash -= 400;
+          gameState.hasKevlarHelmet = true;
+          playSound('buy');
+          showToast('🪖 KEVLAR HELMET EQUIPPED (-25% Damage Taken)!');
+          updateUI();
+          updateBuyMenuUI();
+        } else {
+          showToast('❌ Not enough cash for Kevlar Helmet ($400)!');
+        }
+      } else {
+        showToast('🪖 Kevlar Helmet already equipped!');
+      }
+    });
+  }
 
   if (camoBlackBtn) {
     camoBlackBtn.addEventListener('click', () => {
@@ -3200,6 +3258,14 @@ function throwGrenade() {
   const grenadeMat = new THREE.MeshStandardMaterial({ color: 0x059669, metalness: 0.8 });
   const grenadeMesh = new THREE.Mesh(grenadeGeom, grenadeMat);
 
+  // Add 3D Beacon Indicator visible through walls
+  const markerGeom = new THREE.ConeGeometry(0.12, 0.25, 4);
+  const markerMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, wireframe: true, depthTest: false, transparent: true, opacity: 0.9 });
+  const markerMesh = new THREE.Mesh(markerGeom, markerMat);
+  markerMesh.position.y = 0.4;
+  markerMesh.rotation.x = Math.PI;
+  grenadeMesh.add(markerMesh);
+
   let startPos = camera.position.clone();
   grenadeMesh.position.copy(startPos);
   scene.add(grenadeMesh);
@@ -3213,6 +3279,7 @@ function throwGrenade() {
   let ticks = 0;
   const throwInterval = setInterval(() => {
     ticks += 1;
+    markerMesh.rotation.y += 0.15;
     grenadeMesh.position.add(throwVelocity);
     throwVelocity.y -= 0.015; // Gravity
 
@@ -3392,6 +3459,19 @@ function updateBuyMenuUI() {
       buyAttLaserBtn.textContent = 'BUY ($150)';
       buyAttLaserBtn.className = 'buy-item-btn';
       buyAttLaserBtn.disabled = gameState.cash < 150;
+    }
+  }
+
+  const buyKevlarHelmetBtn = document.getElementById('buy-kevlar-helmet');
+  if (buyKevlarHelmetBtn) {
+    if (gameState.hasKevlarHelmet) {
+      buyKevlarHelmetBtn.textContent = 'EQUIPPED';
+      buyKevlarHelmetBtn.className = 'buy-item-btn equipped';
+      buyKevlarHelmetBtn.disabled = true;
+    } else {
+      buyKevlarHelmetBtn.textContent = 'BUY ($400)';
+      buyKevlarHelmetBtn.className = 'buy-item-btn';
+      buyKevlarHelmetBtn.disabled = gameState.cash < 400;
     }
   }
 }
