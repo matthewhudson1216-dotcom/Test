@@ -191,7 +191,21 @@ header h1 {
   border: 1px solid #1e293b;
 }
 
-.canvas-container canvas {
+.radar-canvas {
+  position: absolute !important;
+  top: 12px !important;
+  right: 12px !important;
+  width: 120px !important;
+  height: 120px !important;
+  background: rgba(2, 6, 23, 0.75);
+  border: 2px solid #0284c7;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 0 15px rgba(2, 132, 199, 0.4);
+}
+
+.canvas-container > canvas:not(.radar-canvas) {
   width: 100% !important;
   height: 100% !important;
   outline: none;
@@ -227,35 +241,62 @@ header h1 {
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 22px;
-  height: 22px;
+  width: 32px;
+  height: 32px;
   transform: translate(-50%, -50%);
-  border: 2px solid rgba(56, 189, 248, 0.85);
-  border-radius: 50%;
   pointer-events: none;
-  transition: transform 0.15s ease, border-color 0.15s ease;
+  z-index: 10;
 }
 
-.crosshair::before, .crosshair::after {
-  content: '';
+.ch-line {
   position: absolute;
-  background: rgba(56, 189, 248, 0.9);
+  background-color: rgba(56, 189, 248, 0.9);
+  box-shadow: 0 0 4px rgba(56, 189, 248, 0.8);
+  transition: transform 0.05s ease-out;
 }
 
-.crosshair::before {
+.ch-line.top {
+  top: 0;
+  left: 50%;
+  width: 2px;
+  height: 8px;
+  transform: translateX(-50%);
+}
+
+.ch-line.bottom {
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  height: 8px;
+  transform: translateX(-50%);
+}
+
+.ch-line.left {
+  left: 0;
   top: 50%;
-  left: -7px;
-  right: -7px;
+  width: 8px;
   height: 2px;
   transform: translateY(-50%);
 }
 
-.crosshair::after {
+.ch-line.right {
+  right: 0;
+  top: 50%;
+  width: 8px;
+  height: 2px;
+  transform: translateY(-50%);
+}
+
+.ch-dot {
+  position: absolute;
+  top: 50%;
   left: 50%;
-  top: -7px;
-  bottom: -7px;
-  width: 2px;
-  transform: translateX(-50%);
+  width: 3px;
+  height: 3px;
+  background-color: #38bdf8;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 0 4px #38bdf8;
 }
 
 /* Damage Vignette Red Screen Flash */
@@ -545,6 +586,41 @@ header h1 {
   width: 90%;
   text-align: center;
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.95);
+}
+
+.settings-panel {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 1rem;
+  margin-bottom: 1.25rem;
+  text-align: left;
+}
+
+.settings-panel h3 {
+  font-size: 0.95rem;
+  color: #38bdf8;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid #334155;
+  padding-bottom: 0.4rem;
+}
+
+.setting-item {
+  margin-bottom: 0.75rem;
+}
+
+.setting-item label {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: #f8fafc;
+  margin-bottom: 0.25rem;
+}
+
+.setting-item input[type="range"] {
+  width: 100%;
+  accent-color: #38bdf8;
+  cursor: pointer;
 }
 
 .pause-card h2, .exit-card h2 {

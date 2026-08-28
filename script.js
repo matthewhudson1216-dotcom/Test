@@ -48,7 +48,9 @@ let isGameExited = false;
 
 let keysPressed = { KeyW: false, KeyA: false, KeyS: false, KeyD: false };
 const moveSpeed = 0.08;
-const mouseSensitivity = 0.002;
+let mouseSensitivity = parseFloat(localStorage.getItem('cop_sens') || '1.0') * 0.002;
+let baseFOV = parseInt(localStorage.getItem('cop_fov') || '65', 10);
+let sfxVolume = parseInt(localStorage.getItem('cop_vol') || '100', 10) / 100;
 
 // Web Audio API Sound Synthesizer
 let audioCtx = null;
@@ -63,7 +65,7 @@ function initAudio() {
 }
 
 function playSound(type) {
-  if (gameState.sfxMuted) return;
+  if (gameState.sfxMuted || sfxVolume <= 0) return;
   initAudio();
   if (!audioCtx) return;
   if (audioCtx.state === 'suspended') audioCtx.resume();
@@ -72,6 +74,7 @@ function playSound(type) {
   const gain = audioCtx.createGain();
   osc.connect(gain);
   gain.connect(audioCtx.destination);
+  const volMult = sfxVolume;
 
   const now = audioCtx.currentTime;
 
@@ -79,7 +82,7 @@ function playSound(type) {
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(500, now);
     osc.frequency.exponentialRampToValueAtTime(80, now + 0.08);
-    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.setValueAtTime(0.25 * volMult, now);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
     osc.start(now);
     osc.stop(now + 0.08);
@@ -152,6 +155,18 @@ function playSound(type) {
 }
 
 // DOM Elements
+const radarCanvas = document.getElementById('radar-canvas');
+const radarCtx = radarCanvas ? radarCanvas.getContext('2d') : null;
+const dynamicCrosshair = document.getElementById('dynamic-crosshair');
+
+// Settings Sliders DOM
+const settingSens = document.getElementById('setting-sens');
+const settingFov = document.getElementById('setting-fov');
+const settingVol = document.getElementById('setting-vol');
+const valSens = document.getElementById('val-sens');
+const valFov = document.getElementById('val-fov');
+const valVol = document.getElementById('val-vol');
+
 const roundDisplay = document.getElementById('round-display');
 const cashDisplay = document.getElementById('cash-display');
 const sfxToggleBtn = document.getElementById('sfx-toggle');
@@ -234,7 +249,7 @@ function init3D() {
   scene = new THREE.Scene();
   scene.background = new THREE.Color(0x020617);
 
-  camera = new THREE.PerspectiveCamera(55, width / height, 0.1, 1000);
+  camera = new THREE.PerspectiveCamera(baseFOV, width / height, 0.1, 1000);
   updateCameraTransform();
 
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -760,6 +775,10 @@ function animate() {
   if (weaponRecoil > 0) weaponRecoil *= 0.82;
   if (muzzleFlashPoint && muzzleFlashPoint.intensity > 0) muzzleFlashPoint.intensity *= 0.7;
 
+  // Dynamic Crosshair Spread based on Movement & Firing Recoil
+  let moveActive = keysPressed.KeyW || keysPressed.Keyw || keysPressed.KeyS || keysPressed.Keys || keysPressed.KeyA || keysPressed.Keya || keysPressed.KeyD || keysPressed.Keyd;
+  updateDynamicCrosshair(moveActive ? 12 : 0 + weaponRecoil * 18);
+
   // Handle WASD Keyboard Movement (Relative to Camera Yaw Direction)
   if (!isPaused && !isGameExited) {
     let moveX = 0;
@@ -807,7 +826,7 @@ function animate() {
   }
 
   // Handle ADS Camera FOV Zoom
-  const targetFov = isAimingDownSights ? 38 : 55;
+  const targetFov = isAimingDownSights ? Math.min(38, baseFOV - 15) : baseFOV;
   camera.fov += (targetFov - camera.fov) * 0.2;
   camera.updateProjectionMatrix();
 
@@ -956,7 +975,105 @@ function animate() {
     }
   }
 
+  renderRadar();
   renderer.render(scene, camera);
+}
+
+function updateDynamicCrosshair(spreadPixels) {
+  if (!dynamicCrosshair) return;
+  const lines = dynamicCrosshair.querySelectorAll('.ch-line');
+  if (lines.length >= 4) {
+    const top = lines[0];
+    const bottom = lines[1];
+    const left = lines[2];
+    const right = lines[3];
+
+    top.style.transform = `translate(-50%, -${spreadPixels}px)`;
+    bottom.style.transform = `translate(-50%, ${spreadPixels}px)`;
+    left.style.transform = `translate(-${spreadPixels}px, -50%)`;
+    right.style.transform = `translate(${spreadPixels}px, -50%)`;
+  }
+}
+
+function renderRadar() {
+  if (!radarCtx || !radarCanvas) return;
+
+  const w = radarCanvas.width;
+  const h = radarCanvas.height;
+  const center = w / 2;
+  const scale = 3.5; // World units to pixels
+
+  radarCtx.clearRect(0, 0, w, h);
+
+  // Background grid circle
+  radarCtx.save();
+  radarCtx.beginPath();
+  radarCtx.arc(center, center, center - 2, 0, Math.PI * 2);
+  radarCtx.clip();
+
+  radarCtx.fillStyle = 'rgba(2, 6, 23, 0.85)';
+  radarCtx.fillRect(0, 0, w, h);
+
+  // Concentric radar sweep rings
+  radarCtx.strokeStyle = 'rgba(2, 132, 199, 0.25)';
+  radarCtx.lineWidth = 1;
+  radarCtx.beginPath();
+  radarCtx.arc(center, center, 20, 0, Math.PI * 2);
+  radarCtx.arc(center, center, 40, 0, Math.PI * 2);
+  radarCtx.stroke();
+
+  // Draw Barricades on Radar
+  radarCtx.fillStyle = 'rgba(100, 116, 139, 0.6)';
+  barricadeObstacles.forEach(box => {
+    const minX = center + (box.min.x - playerPos.x) * scale;
+    const minZ = center + (box.min.z - playerPos.z) * scale;
+    const boxW = (box.max.x - box.min.x) * scale;
+    const boxH = (box.max.y - box.min.y) * scale;
+    radarCtx.fillRect(minX, minZ, boxW, boxH);
+  });
+
+  // Draw Enemy Blips
+  activeEnemies.forEach(enemy => {
+    const ex = center + (enemy.mesh.position.x - playerPos.x) * scale;
+    const ez = center + (enemy.mesh.position.z - playerPos.z) * scale;
+
+    radarCtx.beginPath();
+    radarCtx.arc(ex, ez, enemy.type === 'shield' ? 4 : 3, 0, Math.PI * 2);
+
+    if (enemy.type === 'runner') radarCtx.fillStyle = '#38bdf8';
+    else if (enemy.type === 'shield') radarCtx.fillStyle = '#a855f7';
+    else radarCtx.fillStyle = '#ef4444';
+
+    radarCtx.fill();
+    radarCtx.shadowColor = radarCtx.fillStyle;
+    radarCtx.shadowBlur = 6;
+  });
+
+  // Draw Player Marker & Direction Vision Cone
+  radarCtx.save();
+  radarCtx.translate(center, center);
+  radarCtx.rotate(-cameraRotation.yaw);
+
+  // FOV Cone
+  radarCtx.fillStyle = 'rgba(56, 189, 248, 0.2)';
+  radarCtx.beginPath();
+  radarCtx.moveTo(0, 0);
+  radarCtx.arc(0, 0, 35, -Math.PI / 2 - 0.4, -Math.PI / 2 + 0.4);
+  radarCtx.closePath();
+  radarCtx.fill();
+
+  // Cop Arrow Marker
+  radarCtx.fillStyle = '#34d399';
+  radarCtx.beginPath();
+  radarCtx.moveTo(0, -6);
+  radarCtx.lineTo(-4, 5);
+  radarCtx.lineTo(0, 3);
+  radarCtx.lineTo(4, 5);
+  radarCtx.closePath();
+  radarCtx.fill();
+
+  radarCtx.restore();
+  radarCtx.restore();
 }
 
 function damagePlayer(amount) {
@@ -1561,6 +1678,46 @@ function setupEventListeners() {
     gameState.sfxMuted = !gameState.sfxMuted;
     sfxToggleBtn.textContent = gameState.sfxMuted ? '🔇 SFX Off' : '🔊 SFX On';
   });
+
+  // Settings Sliders Event Listeners
+  if (settingSens) {
+    const initSensVal = localStorage.getItem('cop_sens') || '1.0';
+    settingSens.value = initSensVal;
+    if (valSens) valSens.textContent = initSensVal;
+
+    settingSens.addEventListener('input', (e) => {
+      const val = e.target.value;
+      if (valSens) valSens.textContent = val;
+      mouseSensitivity = parseFloat(val) * 0.002;
+      localStorage.setItem('cop_sens', val);
+    });
+  }
+
+  if (settingFov) {
+    const initFovVal = localStorage.getItem('cop_fov') || '65';
+    settingFov.value = initFovVal;
+    if (valFov) valFov.textContent = initFovVal;
+
+    settingFov.addEventListener('input', (e) => {
+      const val = e.target.value;
+      if (valFov) valFov.textContent = val;
+      baseFOV = parseInt(val, 10);
+      localStorage.setItem('cop_fov', val);
+    });
+  }
+
+  if (settingVol) {
+    const initVolVal = localStorage.getItem('cop_vol') || '100';
+    settingVol.value = initVolVal;
+    if (valVol) valVol.textContent = initVolVal;
+
+    settingVol.addEventListener('input', (e) => {
+      const val = e.target.value;
+      if (valVol) valVol.textContent = val;
+      sfxVolume = parseInt(val, 10) / 100;
+      localStorage.setItem('cop_vol', val);
+    });
+  }
 }
 
 function stopAutoFire() {
