@@ -33,7 +33,9 @@ let isReloadingAnimation = 0; // 0 to 1
 let isSprinting = false;
 let isJumping = false;
 let playerYVel = 0;
-let isKnifeSwinging = 0; // 0 to 1
+let knifeAnimFrame = 0;
+let knifeAnimDuration = 38;
+let knifeDamageTriggered = false;
 
 // Weapon Stats Definition
 const weaponsDef = {
@@ -295,6 +297,7 @@ let isReloading = false;
 
 // FPS 3D Weapon Variables
 let fpsWeaponGroup;
+let fpsKnifeMesh;
 let currentWeaponMesh;
 let muzzleFlashPoint;
 let weaponRecoil = 0;
@@ -348,6 +351,35 @@ function init3D() {
   animate();
 }
 
+function createFPSKnifeMesh() {
+  const knifeGroup = new THREE.Group();
+
+  const handleMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
+  const guardMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.9, roughness: 0.2 });
+  const bladeMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.95, roughness: 0.1 });
+
+  // Handle / Grip
+  const handleGeom = new THREE.BoxGeometry(0.035, 0.2, 0.045);
+  const handleMesh = new THREE.Mesh(handleGeom, handleMat);
+  handleMesh.position.y = -0.1;
+  knifeGroup.add(handleMesh);
+
+  // Guard
+  const guardGeom = new THREE.BoxGeometry(0.08, 0.025, 0.05);
+  const guardMesh = new THREE.Mesh(guardGeom, guardMat);
+  guardMesh.position.y = 0.01;
+  knifeGroup.add(guardMesh);
+
+  // Blade
+  const bladeGeom = new THREE.BoxGeometry(0.015, 0.32, 0.055);
+  const bladeMesh = new THREE.Mesh(bladeGeom, bladeMat);
+  bladeMesh.position.set(0, 0.17, 0);
+  knifeGroup.add(bladeMesh);
+
+  knifeGroup.visible = false;
+  return knifeGroup;
+}
+
 function initFPSWeaponGroup() {
   fpsWeaponGroup = new THREE.Group();
   camera.add(fpsWeaponGroup);
@@ -363,6 +395,10 @@ function initFPSWeaponGroup() {
   tacticalFlashlight.target.position.set(0, 0, -1);
   camera.add(tacticalFlashlight);
   camera.add(tacticalFlashlight.target);
+
+  // Create 3D FPS Combat Knife Mesh
+  fpsKnifeMesh = createFPSKnifeMesh();
+  fpsWeaponGroup.add(fpsKnifeMesh);
 
   updateFPSWeaponMesh();
 }
@@ -1037,24 +1073,102 @@ function animate() {
     isReloadingAnimation = Math.max(0, isReloadingAnimation - 0.08);
   }
 
-  // Apply weapon recoil, bob, ADS centering, and reload tilt to FPS weapon model
+  // Apply weapon recoil, bob, ADS centering, reload tilt, & knife slash animation
   if (currentWeaponMesh) {
     const bobOffset = Math.sin(weaponBob) * (isAimingDownSights ? 0.004 : 0.015);
     const sideBobOffset = Math.cos(weaponBob * 0.5) * (isAimingDownSights ? 0.002 : 0.01);
 
+    let gunAnimY = 0;
+    let gunAnimX = 0;
+    let gunAnimRotX = 0;
+    let gunAnimRotZ = 0;
+
+    if (knifeAnimFrame > 0) {
+      knifeAnimFrame++;
+      const t = knifeAnimFrame / knifeAnimDuration;
+
+      if (t <= 0.28) {
+        // Phase 1: Stow active gun & bring knife up
+        const p1 = t / 0.28;
+        if (gameState.equippedWeapon === 'pistol') {
+          gunAnimY = -0.45 * p1;
+          gunAnimX = 0.22 * p1;
+          gunAnimRotZ = -0.3 * p1;
+        } else {
+          gunAnimY = -0.5 * p1;
+          gunAnimRotX = 1.2 * p1;
+          gunAnimRotZ = 0.4 * p1;
+        }
+
+        if (fpsKnifeMesh) {
+          fpsKnifeMesh.visible = true;
+          fpsKnifeMesh.position.set(-0.2 + 0.15 * p1, -0.4 + 0.25 * p1, -0.35);
+          fpsKnifeMesh.rotation.set(-0.2, 0.4, -0.6 + 0.6 * p1);
+        }
+      } else if (t <= 0.62) {
+        // Phase 2: Knife Slash Arc Swing across screen
+        const p2 = (t - 0.28) / 0.34;
+
+        if (gameState.equippedWeapon === 'pistol') {
+          gunAnimY = -0.45;
+          gunAnimX = 0.22;
+          gunAnimRotZ = -0.3;
+        } else {
+          gunAnimY = -0.5;
+          gunAnimRotX = 1.2;
+          gunAnimRotZ = 0.4;
+        }
+
+        if (!knifeDamageTriggered && p2 >= 0.2) {
+          knifeDamageTriggered = true;
+          playSound('knife');
+          executeKnifeDamageCheck();
+        }
+
+        if (fpsKnifeMesh) {
+          fpsKnifeMesh.visible = true;
+          fpsKnifeMesh.position.set(-0.15 + 0.38 * p2, -0.15 + Math.sin(p2 * Math.PI) * 0.18, -0.32);
+          fpsKnifeMesh.rotation.set(-0.3, 0.5 - p2 * 1.2, 0 + p2 * 2.4);
+        }
+      } else if (t <= 1.0) {
+        // Phase 3: Sheathe knife & unholster/draw gun back into hands
+        const p3 = (t - 0.62) / 0.38;
+
+        if (gameState.equippedWeapon === 'pistol') {
+          gunAnimY = -0.45 * (1 - p3);
+          gunAnimX = 0.22 * (1 - p3);
+          gunAnimRotZ = -0.3 * (1 - p3);
+        } else {
+          gunAnimY = -0.5 * (1 - p3);
+          gunAnimRotX = 1.2 * (1 - p3);
+          gunAnimRotZ = 0.4 * (1 - p3);
+        }
+
+        if (fpsKnifeMesh) {
+          fpsKnifeMesh.position.set(0.23, -0.15 - 0.35 * p3, -0.32);
+          if (p3 >= 0.9) fpsKnifeMesh.visible = false;
+        }
+      }
+
+      if (knifeAnimFrame >= knifeAnimDuration) {
+        knifeAnimFrame = 0;
+        if (fpsKnifeMesh) fpsKnifeMesh.visible = false;
+      }
+    }
+
     // Target X position: centered (0) in ADS mode, offset to right when hip-firing
     const targetX = isAimingDownSights ? 0 : (gameState.equippedWeapon === 'shotgun' ? 0.26 : 0.24);
-    currentWeaponMesh.position.x += (targetX + sideBobOffset - currentWeaponMesh.position.x) * 0.2;
+    currentWeaponMesh.position.x += (targetX + sideBobOffset + gunAnimX - currentWeaponMesh.position.x) * 0.2;
 
     // Adjust Y position during ADS so iron sights / Red Dot Sight align directly with center eye line
     const basePosY = gameState.equippedWeapon === 'shotgun' ? -0.24 : -0.22;
     const adsYOffset = isAimingDownSights ? (gameState.attachments.reddot ? 0.07 : 0.04) : 0;
 
-    currentWeaponMesh.position.y = basePosY + adsYOffset + bobOffset - weaponRecoil * 0.06 - isReloadingAnimation * 0.15;
+    currentWeaponMesh.position.y = basePosY + adsYOffset + bobOffset + gunAnimY - weaponRecoil * 0.06 - isReloadingAnimation * 0.15;
     currentWeaponMesh.position.z = (gameState.equippedWeapon === 'pistol' ? -0.45 : -0.52) + weaponRecoil * 0.12;
-    currentWeaponMesh.rotation.x = weaponRecoil * 0.35 + isReloadingAnimation * 0.6;
+    currentWeaponMesh.rotation.x = weaponRecoil * 0.35 + isReloadingAnimation * 0.6 + gunAnimRotX;
     currentWeaponMesh.rotation.y = sideBobOffset * 0.5;
-    currentWeaponMesh.rotation.z = weaponRecoil * -0.15 + isReloadingAnimation * -0.4;
+    currentWeaponMesh.rotation.z = weaponRecoil * -0.15 + isReloadingAnimation * -0.4 + gunAnimRotZ;
   }
 
   // Police Siren Emergency Lights Flashing
@@ -2338,13 +2452,7 @@ function updateUI() {
   startRoundBtn.disabled = gameState.isRoundActive;
 }
 
-function performQuickMeleeKnife() {
-  if (isKnifeSwinging > 0 || isPaused || isGameExited) return;
-
-  isKnifeSwinging = 1.0;
-  playSound('knife');
-  showToast('🔪 KNIFE SLASH!');
-
+function executeKnifeDamageCheck() {
   const rect = renderer.domElement.getBoundingClientRect();
   const screenCenterX = rect.width / 2;
   const screenCenterY = rect.height / 2;
@@ -2380,8 +2488,14 @@ function performQuickMeleeKnife() {
       break;
     }
   }
+}
 
-  setTimeout(() => { isKnifeSwinging = 0; }, 300);
+function performQuickMeleeKnife() {
+  if (knifeAnimFrame > 0 || isPaused || isGameExited) return;
+
+  knifeAnimFrame = 1;
+  knifeDamageTriggered = false;
+  showToast('🔪 KNIFE SLASH!');
 }
 
 function updateBuyMenuUI() {
