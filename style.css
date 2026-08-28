@@ -600,6 +600,81 @@ header h1 {
   display: none;
 }
 
+/* Start Main Menu Modal */
+.main-menu-card {
+  background: rgba(15, 23, 42, 0.95);
+  backdrop-filter: blur(16px);
+  border: 2px solid #0284c7;
+  border-radius: 16px;
+  max-width: 580px;
+  width: 90%;
+  padding: 2.2rem;
+  box-shadow: 0 0 50px rgba(2, 132, 199, 0.4);
+  text-align: center;
+}
+
+.main-menu-header h1 {
+  font-size: 2.2rem;
+  font-weight: 900;
+  color: #38bdf8;
+  letter-spacing: 1px;
+}
+
+.main-menu-header p {
+  font-size: 0.9rem;
+  color: #94a3b8;
+  margin-bottom: 1.25rem;
+}
+
+.briefing-box {
+  background: rgba(30, 41, 59, 0.6);
+  border-left: 4px solid #38bdf8;
+  padding: 1rem;
+  border-radius: 8px;
+  text-align: left;
+  margin-bottom: 1rem;
+}
+
+.briefing-box h3 {
+  font-size: 0.92rem;
+  color: #f1f5f9;
+  margin-bottom: 0.3rem;
+}
+
+.briefing-box p {
+  font-size: 0.82rem;
+  color: #cbd5e1;
+  line-height: 1.4;
+}
+
+.menu-controls-summary {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.main-deploy-btn {
+  background: linear-gradient(135deg, #0284c7, #4f46e5);
+  color: #ffffff;
+  border: none;
+  padding: 1rem 2.5rem;
+  border-radius: 10px;
+  font-weight: 800;
+  font-size: 1.15rem;
+  cursor: pointer;
+  box-shadow: 0 10px 25px rgba(79, 70, 229, 0.5);
+  transition: transform 0.15s, box-shadow 0.15s;
+  width: 100%;
+}
+
+.main-deploy-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 30px rgba(79, 70, 229, 0.7);
+}
+
 .buy-menu-card {
   background: #0f172a;
   border: 1px solid #0284c7;

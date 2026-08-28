@@ -340,7 +340,10 @@ let swatPartnerMesh = null;
 let swatPartnerTimer = 0;
 let enemiesToSpawnInRound = 0;
 let raycaster, mouse;
+let isGameStarted = false;
 let isReloading = false;
+const mainMenuModal = document.getElementById('main-menu-modal');
+const startGameBtn = document.getElementById('start-game-btn');
 
 // FPS 3D Weapon Variables
 let fpsWeaponGroup;
@@ -1275,8 +1278,8 @@ function updateGamepadInput() {
         const right = new THREE.Vector3(1, 0, 0).applyEuler(euler);
 
         const moveSpeed = (isSprinting ? 0.18 : 0.1) * (isCrouched ? 0.5 : 1.0);
-        playerPos.addScaledVector(forward, -ly * moveSpeed);
-        playerPos.addScaledVector(right, lx * moveSpeed);
+        playerPos.x += (forward.x * -ly + right.x * lx) * moveSpeed;
+        playerPos.z += (forward.z * -ly + right.z * lx) * moveSpeed;
       }
 
       // Triggers: R2 Fire (7), L2 ADS (6)
@@ -1330,6 +1333,19 @@ function updateGamepadInput() {
 
 function animate() {
   requestAnimationFrame(animate);
+
+  if (!isGameStarted) {
+    // Cinematic background camera orbit on main menu screen
+    const time = Date.now() * 0.0003;
+    if (camera) {
+      camera.position.x = Math.sin(time) * 12;
+      camera.position.z = Math.cos(time) * 12;
+      camera.position.y = 2.5;
+      camera.lookAt(0, 0, -5);
+    }
+    renderer.render(scene, camera);
+    return;
+  }
 
   // Animate Shooting Range Target Dummies
   if (currentMap === 'range') {
@@ -1894,8 +1910,11 @@ function handleShooterClick(event) {
   if (isPaused || isGameExited) return;
 
   // Request Pointer Lock for immersive 3D mouse look
-  if (document.pointerLockElement !== canvasContainer && !buyMenuModal.classList.contains('hidden') === false) {
-    canvasContainer.requestPointerLock();
+  if (document.pointerLockElement !== canvasContainer) {
+    if (canvasContainer && buyMenuModal.classList.contains('hidden')) {
+      canvasContainer.requestPointerLock();
+    }
+    return; // Return early on re-focus click so the weapon does NOT fire on re-locking pointer
   }
 
   if (!gameState.isRoundActive) {
@@ -2447,6 +2466,15 @@ function restartGame() {
 }
 
 function setupEventListeners() {
+  if (startGameBtn) {
+    startGameBtn.addEventListener('click', () => {
+      isGameStarted = true;
+      if (mainMenuModal) mainMenuModal.classList.add('hidden');
+      canvasContainer.requestPointerLock();
+      showToast('🚨 DEPLOYED ON DUTY! Good luck Officer.');
+      playRadioChatter('All units, SWAT Team deployed on duty!');
+    });
+  }
   const camoBlackBtn = document.getElementById('camo-black-btn');
   const camoUrbanBtn = document.getElementById('camo-urban-btn');
   const camoGoldBtn = document.getElementById('camo-gold-btn');
