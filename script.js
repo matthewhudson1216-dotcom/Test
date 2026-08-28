@@ -187,6 +187,7 @@ const damageVignetteEl = document.getElementById('damage-vignette');
 const hitmarkerEl = document.getElementById('hitmarker');
 
 const pauseHeaderBtn = document.getElementById('pause-btn');
+const mainPauseTriggerBtn = document.getElementById('main-pause-trigger-btn');
 const openBuyMenuBtn = document.getElementById('open-buy-menu-btn');
 const startRoundBtn = document.getElementById('start-round-btn');
 const buyMenuModal = document.getElementById('buy-menu-modal');
@@ -448,29 +449,61 @@ function createCopPlayerMesh() {
 // Procedural Canvas Texture Generator Helpers
 function createAsphaltTexture() {
   const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 256;
+  canvas.width = 512;
+  canvas.height = 512;
   const ctx = canvas.getContext('2d');
 
-  ctx.fillStyle = '#0f172a';
-  ctx.fillRect(0, 0, 256, 256);
+  // Dark asphalt base
+  ctx.fillStyle = '#0b0f19';
+  ctx.fillRect(0, 0, 512, 512);
 
-  // Noise specks
-  for (let i = 0; i < 4000; i++) {
-    const x = Math.random() * 256;
-    const y = Math.random() * 256;
-    ctx.fillStyle = Math.random() < 0.5 ? '#1e293b' : '#090d16';
+  // Micro-texture asphalt grain & noise specks
+  for (let i = 0; i < 12000; i++) {
+    const x = Math.random() * 512;
+    const y = Math.random() * 512;
+    const shade = Math.random();
+    ctx.fillStyle = shade < 0.4 ? '#1e293b' : (shade < 0.8 ? '#050811' : '#334155');
     ctx.fillRect(x, y, 2, 2);
   }
 
-  // Yellow road lines
+  // Sidewalk curb borders on edges
+  ctx.fillStyle = '#334155';
+  ctx.fillRect(0, 0, 32, 512);
+  ctx.fillRect(480, 0, 32, 512);
+
+  // Curb tile division lines
+  ctx.strokeStyle = '#1e293b';
+  ctx.lineWidth = 3;
+  for (let y = 0; y <= 512; y += 32) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(32, y);
+    ctx.moveTo(480, y);
+    ctx.lineTo(512, y);
+    ctx.stroke();
+  }
+
+  // Yellow double center lane divider
   ctx.strokeStyle = '#eab308';
   ctx.lineWidth = 6;
-  ctx.setLineDash([20, 20]);
+  ctx.setLineDash([32, 32]);
+
   ctx.beginPath();
-  ctx.moveTo(128, 0);
-  ctx.lineTo(128, 256);
+  ctx.moveTo(250, 0);
+  ctx.lineTo(250, 512);
   ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(262, 0);
+  ctx.lineTo(262, 512);
+  ctx.stroke();
+
+  // White crosswalk pedestrian stripes
+  ctx.fillStyle = 'rgba(248, 250, 252, 0.85)';
+  ctx.setLineDash([]);
+  for (let x = 60; x <= 420; x += 36) {
+    ctx.fillRect(x, 220, 20, 72);
+  }
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.wrapS = THREE.RepeatWrapping;
@@ -481,36 +514,62 @@ function createAsphaltTexture() {
 
 function createBuildingTexture() {
   const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 256;
+  canvas.width = 512;
+  canvas.height = 512;
   const ctx = canvas.getContext('2d');
 
+  // Concrete building base color
   ctx.fillStyle = '#1e293b';
-  ctx.fillRect(0, 0, 256, 256);
+  ctx.fillRect(0, 0, 512, 512);
 
-  // Concrete grid lines
+  // Architectural panel bevels / dark grid borders
   ctx.strokeStyle = '#0f172a';
-  ctx.lineWidth = 4;
-  for (let x = 0; x <= 256; x += 32) {
+  ctx.lineWidth = 6;
+  for (let x = 0; x <= 512; x += 64) {
     ctx.beginPath();
     ctx.moveTo(x, 0);
-    ctx.lineTo(x, 256);
+    ctx.lineTo(x, 512);
     ctx.stroke();
   }
-  for (let y = 0; y <= 256; y += 32) {
+  for (let y = 0; y <= 512; y += 64) {
     ctx.beginPath();
     ctx.moveTo(0, y);
-    ctx.lineTo(256, y);
+    ctx.lineTo(512, y);
     ctx.stroke();
   }
 
-  // Glowing window squares
-  for (let x = 8; x < 256; x += 32) {
-    for (let y = 8; y < 256; y += 32) {
-      if (Math.random() < 0.65) {
-        ctx.fillStyle = Math.random() < 0.2 ? '#38bdf8' : '#fbbf24';
-        ctx.fillRect(x, y, 16, 16);
+  // Architectural trim ledges
+  ctx.fillStyle = '#475569';
+  for (let y = 0; y < 512; y += 128) {
+    ctx.fillRect(0, y, 512, 10);
+  }
+
+  // Glowing window squares with metallic frames & varied lighting
+  for (let x = 12; x < 512; x += 64) {
+    for (let y = 16; y < 512; y += 64) {
+      // Window frame border
+      ctx.fillStyle = '#334155';
+      ctx.fillRect(x - 2, y - 2, 42, 38);
+
+      const rand = Math.random();
+      if (rand < 0.7) {
+        // Lit window (blue, cyan, or warm amber glow)
+        if (rand < 0.25) ctx.fillStyle = '#38bdf8';
+        else if (rand < 0.5) ctx.fillStyle = '#fbbf24';
+        else ctx.fillStyle = '#0284c7';
+      } else {
+        // Unlit window reflect
+        ctx.fillStyle = '#050811';
       }
+      ctx.fillRect(x, y, 38, 34);
+
+      // Glass inner reflection line
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(x + 4, y + 28);
+      ctx.lineTo(x + 24, y + 4);
+      ctx.stroke();
     }
   }
 
@@ -522,21 +581,31 @@ function createBuildingTexture() {
 
 function createWeaponTexture(baseHex, camoHex) {
   const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 128;
+  canvas.width = 256;
+  canvas.height = 256;
   const ctx = canvas.getContext('2d');
 
   ctx.fillStyle = baseHex;
-  ctx.fillRect(0, 0, 128, 128);
+  ctx.fillRect(0, 0, 256, 256);
 
+  // Tactical camo speckles
   ctx.fillStyle = camoHex;
+  for (let i = 0; i < 40; i++) {
+    const x = Math.random() * 256;
+    const y = Math.random() * 256;
+    const w = 12 + Math.random() * 24;
+    const h = 8 + Math.random() * 18;
+    ctx.fillRect(x, y, w, h);
+  }
+
+  // Metallic scratch details
+  ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+  ctx.lineWidth = 1;
   for (let i = 0; i < 20; i++) {
-    const x = Math.random() * 128;
-    const y = Math.random() * 128;
-    const r = 8 + Math.random() * 18;
     ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.moveTo(Math.random() * 256, Math.random() * 256);
+    ctx.lineTo(Math.random() * 256, Math.random() * 256);
+    ctx.stroke();
   }
 
   return new THREE.CanvasTexture(canvas);
@@ -840,19 +909,21 @@ function animate() {
   // Apply weapon recoil, bob, ADS centering, and reload tilt to FPS weapon model
   if (currentWeaponMesh) {
     const bobOffset = Math.sin(weaponBob) * (isAimingDownSights ? 0.004 : 0.015);
+    const sideBobOffset = Math.cos(weaponBob * 0.5) * (isAimingDownSights ? 0.002 : 0.01);
 
     // Target X position: centered (0) in ADS mode, offset to right when hip-firing
     const targetX = isAimingDownSights ? 0 : (gameState.equippedWeapon === 'shotgun' ? 0.26 : 0.24);
-    currentWeaponMesh.position.x += (targetX - currentWeaponMesh.position.x) * 0.2;
+    currentWeaponMesh.position.x += (targetX + sideBobOffset - currentWeaponMesh.position.x) * 0.2;
 
     // Adjust Y position during ADS so iron sights / Red Dot Sight align directly with center eye line
     const basePosY = gameState.equippedWeapon === 'shotgun' ? -0.24 : -0.22;
     const adsYOffset = isAimingDownSights ? (gameState.attachments.reddot ? 0.07 : 0.04) : 0;
 
-    currentWeaponMesh.position.y = basePosY + adsYOffset + bobOffset - weaponRecoil * 0.05 - isReloadingAnimation * 0.15;
-    currentWeaponMesh.position.z = (gameState.equippedWeapon === 'pistol' ? -0.45 : -0.52) + weaponRecoil * 0.1;
-    currentWeaponMesh.rotation.x = weaponRecoil * 0.3 + isReloadingAnimation * 0.6;
-    currentWeaponMesh.rotation.z = isReloadingAnimation * -0.4;
+    currentWeaponMesh.position.y = basePosY + adsYOffset + bobOffset - weaponRecoil * 0.06 - isReloadingAnimation * 0.15;
+    currentWeaponMesh.position.z = (gameState.equippedWeapon === 'pistol' ? -0.45 : -0.52) + weaponRecoil * 0.12;
+    currentWeaponMesh.rotation.x = weaponRecoil * 0.35 + isReloadingAnimation * 0.6;
+    currentWeaponMesh.rotation.y = sideBobOffset * 0.5;
+    currentWeaponMesh.rotation.z = weaponRecoil * -0.15 + isReloadingAnimation * -0.4;
   }
 
   // Police Siren Emergency Lights Flashing
@@ -935,10 +1006,19 @@ function animate() {
       // Human walking animation (leg & arm swinging)
       enemy.walkCycle += 0.15;
       if (enemy.leftLeg && enemy.rightLeg && enemy.leftArm && enemy.rightArm) {
-        enemy.leftLeg.rotation.x = Math.sin(enemy.walkCycle) * 0.4;
-        enemy.rightLeg.rotation.x = -Math.sin(enemy.walkCycle) * 0.4;
-        enemy.leftArm.rotation.x = -Math.sin(enemy.walkCycle) * 0.4;
-        enemy.rightArm.rotation.x = Math.sin(enemy.walkCycle) * 0.4;
+        enemy.leftLeg.rotation.x = Math.sin(enemy.walkCycle) * 0.45;
+        enemy.rightLeg.rotation.x = -Math.sin(enemy.walkCycle) * 0.45;
+        enemy.leftArm.rotation.x = -Math.sin(enemy.walkCycle) * 0.45;
+        enemy.rightArm.rotation.x = Math.sin(enemy.walkCycle) * 0.45;
+      }
+
+      // Hit recoil physical reaction animation (tilt back on shot)
+      if (enemy.hitRecoil && enemy.hitRecoil > 0) {
+        enemy.mesh.rotation.x = -enemy.hitRecoil * 0.3;
+        enemy.hitRecoil *= 0.8;
+        if (enemy.hitRecoil < 0.02) enemy.hitRecoil = 0;
+      } else {
+        enemy.mesh.rotation.x = 0;
       }
 
       // Keep 3D Health Bar billboarding facing camera
@@ -1185,6 +1265,7 @@ function handleShooterClick(event) {
 
         const appliedDamage = Math.round(wpnDef.damage * mult);
         enemy.hp -= appliedDamage;
+        enemy.hitRecoil = 1.0;
 
         if (enemy.hp <= 0) {
           scene.remove(enemy.mesh);
@@ -1240,6 +1321,7 @@ function handleShooterClick(event) {
 
       const appliedDamage = Math.round(wpnDef.damage * mult);
       enemy.hp -= appliedDamage;
+      enemy.hitRecoil = 1.0;
 
       spawnFloatingText(`${label}-${appliedDamage}`, screenCenterX, screenCenterY, hitBodyPart === 'head');
 
@@ -1361,9 +1443,19 @@ function startNextRound() {
   gameState.isRoundActive = true;
   enemiesToSpawnInRound = 4 + gameState.round * 3;
   buyMenuModal.classList.add('hidden');
+  pauseModal.classList.add('hidden');
+  isPaused = false;
 
   showToast(`🚨 ROUND ${gameState.round} STARTED! Neutralize all Robbers!`);
   updateUI();
+}
+
+function toggleBuyMenu() {
+  if (buyMenuModal.classList.contains('hidden')) {
+    openBuyMenu();
+  } else {
+    buyMenuModal.classList.add('hidden');
+  }
 }
 
 function checkRoundStatus() {
@@ -1514,8 +1606,15 @@ function setupEventListeners() {
     }
   });
 
-  // WASD, Reload, Grenade & Escape Keyboard Listeners
+  // WASD, Reload, Grenade, Buy Menu & Escape Keyboard Listeners
   window.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyB' || e.code === 'Keyb' || e.key === 'b' || e.key === 'B') {
+      if (!isGameExited) {
+        toggleBuyMenu();
+      }
+      return;
+    }
+
     if (e.code === 'Escape') {
       if (!isGameExited) {
         togglePauseMenu();
@@ -1547,6 +1646,9 @@ function setupEventListeners() {
 
   if (pauseHeaderBtn) {
     pauseHeaderBtn.addEventListener('click', togglePauseMenu);
+  }
+  if (mainPauseTriggerBtn) {
+    mainPauseTriggerBtn.addEventListener('click', togglePauseMenu);
   }
 
   openBuyMenuBtn.addEventListener('click', openBuyMenu);

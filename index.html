@@ -51,11 +51,12 @@
         <!-- 3D City Viewport with Target Crosshair -->
         <div id="canvas-container" class="canvas-container shooter-canvas">
           <div class="controls-hint-overlay">
-            <span class="key-badge">MOUSE</span> Look Around &nbsp;•&nbsp;
-            <span class="key-badge">W</span><span class="key-badge">A</span><span class="key-badge">S</span><span class="key-badge">D</span> Move Cop &nbsp;•&nbsp;
+            <span class="key-badge">MOUSE</span> Look &nbsp;•&nbsp;
+            <span class="key-badge">W</span><span class="key-badge">A</span><span class="key-badge">S</span><span class="key-badge">D</span> Move &nbsp;•&nbsp;
             <span class="key-badge">CLICK</span> Fire &nbsp;•&nbsp;
             <span class="key-badge">R</span> Reload &nbsp;•&nbsp;
-            <span class="key-badge">ESC</span> Pause / Exit
+            <span class="key-badge">B</span> Buy Menu &nbsp;•&nbsp;
+            <span class="key-badge">ESC</span> Pause / Start Round
           </div>
           <div id="floating-text-container" class="floating-text-container"></div>
           <div id="damage-vignette" class="damage-vignette hidden"></div>
@@ -72,8 +73,8 @@
         </div>
 
         <div class="viewport-action-bar">
-          <button id="open-buy-menu-btn" class="ctrl-btn buy-menu-trigger-btn">🛒 OPEN BUY MENU</button>
-          <button id="start-round-btn" class="main-click-btn start-round-btn">▶️ START NEXT ROUND</button>
+          <button id="open-buy-menu-btn" class="ctrl-btn buy-menu-trigger-btn">🛒 OPEN ARMORY BUY MENU [B]</button>
+          <button id="main-pause-trigger-btn" class="ctrl-btn pause-menu-trigger-btn">⏸️ PAUSE / START ROUND [ESC]</button>
         </div>
       </section>
     </main>
@@ -203,6 +204,7 @@
       </div>
 
       <div class="pause-btn-group">
+        <button id="start-round-btn" class="pause-btn start-round-pause-btn">▶️ START NEXT ROUND</button>
         <button id="resume-game-btn" class="pause-btn resume">▶️ RESUME GAME</button>
         <button id="exit-game-btn" class="pause-btn danger">🚪 EXIT GAME</button>
       </div>
