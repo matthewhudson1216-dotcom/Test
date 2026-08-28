@@ -13,6 +13,10 @@ let gameState = {
     shotgun: false,
     rifle: false
   },
+  attachments: {
+    reddot: false,
+    laser: false
+  },
   equippedWeapon: 'pistol',
   grenades: 2,
   ammo: {
@@ -188,6 +192,8 @@ const buyWpnRifleBtn = document.getElementById('buy-wpn-rifle');
 const buyArmorKevlarBtn = document.getElementById('buy-armor-kevlar');
 const buyArmorHeavyBtn = document.getElementById('buy-armor-heavy');
 const buyMedkitBtn = document.getElementById('buy-medkit');
+const buyAttReddotBtn = document.getElementById('buy-att-reddot');
+const buyAttLaserBtn = document.getElementById('buy-att-laser');
 
 const toastContainer = document.getElementById('toast-container');
 
@@ -199,6 +205,7 @@ let policeSirenLightRed, policeSirenLightBlue;
 
 let activeEnemies = [];
 let activeProjectiles = [];
+let barricadeObstacles = [];
 let enemiesToSpawnInRound = 0;
 let raycaster, mouse;
 let isReloading = false;
@@ -286,13 +293,42 @@ function updateFPSWeaponMesh() {
   const gripMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
   const goldMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.9, roughness: 0.1 });
 
-  // Tactical Red Laser Sight Beam
-  const laserGeom = new THREE.CylinderGeometry(0.003, 0.003, 10, 6);
-  const laserMat = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.6 });
-  const laserBeam = new THREE.Mesh(laserGeom, laserMat);
-  laserBeam.rotation.x = Math.PI / 2;
-  laserBeam.position.set(0, 0, -5);
-  group.add(laserBeam);
+  // Optional Tactical Red Laser Sight Beam
+  if (gameState.attachments.laser) {
+    const laserGeom = new THREE.CylinderGeometry(0.003, 0.003, 10, 6);
+    const laserMat = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.7 });
+    const laserBeam = new THREE.Mesh(laserGeom, laserMat);
+    laserBeam.rotation.x = Math.PI / 2;
+    laserBeam.position.set(0, 0, -5);
+    group.add(laserBeam);
+  }
+
+  // Optional Red Dot Sight Optic
+  if (gameState.attachments.reddot) {
+    const sightGroup = new THREE.Group();
+    const mount = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.12), darkMetalMat);
+    mount.position.set(0, 0, 0);
+    sightGroup.add(mount);
+
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(0.04, 0.008, 8, 16), darkMetalMat);
+    ring.position.set(0, 0.05, 0);
+    sightGroup.add(ring);
+
+    const dotGeom = new THREE.SphereGeometry(0.008, 8, 8);
+    const dotMat = new THREE.MeshBasicMaterial({ color: 0xef4444 });
+    const dotMesh = new THREE.Mesh(dotGeom, dotMat);
+    dotMesh.position.set(0, 0.05, 0);
+    sightGroup.add(dotMesh);
+
+    if (type === 'pistol') {
+      sightGroup.position.set(0, 0.1, -0.15);
+    } else if (type === 'shotgun') {
+      sightGroup.position.set(0, 0.1, -0.2);
+    } else if (type === 'rifle') {
+      sightGroup.position.set(0, 0.1, -0.2);
+    }
+    group.add(sightGroup);
+  }
 
   if (type === 'pistol') {
     // Service Pistol Model
@@ -525,26 +561,46 @@ function createProceduralCity() {
     }
   }
 
-  // Street Cover Props (Police Cruisers & Concrete Barriers)
+  // Solid Fortified Barricade Wall Props
+  barricadeObstacles = [];
   const cruiserMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.9, roughness: 0.2 });
-  const barrierMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.8 });
+  const barrierMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.2, roughness: 0.8 });
 
-  for (let i = -2; i <= 2; i++) {
-    if (i === 0) continue;
-    // Concrete Barrier Cover
-    const barrier = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.7, 0.4), barrierMat);
-    barrier.position.set(i * 2.2, -0.85, -2.5 - Math.abs(i) * 0.5);
-    cityGroup.add(barrier);
+  // Add prominent barricade walls in the street
+  const barricadeConfigs = [
+    { x: 0, y: -0.6, z: -2.0, w: 3.5, h: 1.2, d: 0.6 },
+    { x: -4.5, y: -0.6, z: -1.0, w: 2.8, h: 1.2, d: 0.6 },
+    { x: 4.5, y: -0.6, z: -1.0, w: 2.8, h: 1.2, d: 0.6 },
+    { x: -2.5, y: -0.6, z: 2.0, w: 2.5, h: 1.2, d: 0.6 },
+    { x: 2.5, y: -0.6, z: 2.0, w: 2.5, h: 1.2, d: 0.6 }
+  ];
 
-    // Parked Police Cruiser
-    if (Math.abs(i) === 2) {
-      const car = new THREE.Group();
-      const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.6, 2.2), cruiserMat);
-      car.add(body);
-      car.position.set(i * 1.8, -0.9, -1.0);
-      car.rotation.y = (i > 0 ? 0.3 : -0.3);
-      cityGroup.add(car);
-    }
+  barricadeConfigs.forEach(cfg => {
+    const wallMesh = new THREE.Mesh(new THREE.BoxGeometry(cfg.w, cfg.h, cfg.d), barrierMat);
+    wallMesh.position.set(cfg.x, cfg.y, cfg.z);
+    cityGroup.add(wallMesh);
+
+    // Stripe detail on barricade
+    const stripeMat = new THREE.MeshBasicMaterial({ color: 0xeab308 });
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(cfg.w * 0.95, 0.15, cfg.d + 0.02), stripeMat);
+    stripe.position.set(cfg.x, cfg.y + 0.3, cfg.z);
+    cityGroup.add(stripe);
+
+    // Store collision bounding box
+    const box = new THREE.Box3().setFromObject(wallMesh);
+    barricadeObstacles.push(box);
+  });
+
+  // Parked Police Cruisers (also solid obstacles)
+  for (let i = -2; i <= 2; i += 4) {
+    const car = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.4, 0.7, 2.4), cruiserMat);
+    car.add(body);
+    car.position.set(i * 2.2, -0.85, -4.0);
+    cityGroup.add(car);
+
+    const carBox = new THREE.Box3().setFromObject(car);
+    barricadeObstacles.push(carBox);
   }
 
   scene.add(cityGroup);
@@ -687,6 +743,7 @@ function spawnRobberEnemy() {
     speed,
     walkCycle: Math.random() * 10,
     shootCooldown: 0,
+    meleeCooldown: 0,
     leftLeg,
     rightLeg,
     leftArm,
@@ -722,8 +779,27 @@ function animate() {
       // Rotate movement vector according to camera yaw angle
       moveVec.applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraRotation.yaw);
 
-      playerPos.x = Math.min(Math.max(-6.0, playerPos.x + moveVec.x), 6.0);
-      playerPos.z = Math.min(Math.max(-2.0, playerPos.z + moveVec.z), 5.5);
+      // Calculate tentative target position
+      let targetX = Math.min(Math.max(-12.0, playerPos.x + moveVec.x), 12.0);
+      let targetZ = Math.min(Math.max(-8.0, playerPos.z + moveVec.z), 12.0);
+
+      // Check collision against solid barricade walls (player radius ~0.35)
+      let canMoveX = true;
+      let canMoveZ = true;
+
+      barricadeObstacles.forEach(box => {
+        if (targetX >= box.min.x - 0.35 && targetX <= box.max.x + 0.35 &&
+            playerPos.z >= box.min.z - 0.35 && playerPos.z <= box.max.z + 0.35) {
+          canMoveX = false;
+        }
+        if (playerPos.x >= box.min.x - 0.35 && playerPos.x <= box.max.x + 0.35 &&
+            targetZ >= box.min.z - 0.35 && targetZ <= box.max.z + 0.35) {
+          canMoveZ = false;
+        }
+      });
+
+      if (canMoveX) playerPos.x = targetX;
+      if (canMoveZ) playerPos.z = targetZ;
 
       copPlayerMesh.position.set(playerPos.x, playerPos.y, playerPos.z);
       updateCameraTransform();
@@ -750,7 +826,11 @@ function animate() {
     const targetX = isAimingDownSights ? 0 : (gameState.equippedWeapon === 'shotgun' ? 0.26 : 0.24);
     currentWeaponMesh.position.x += (targetX - currentWeaponMesh.position.x) * 0.2;
 
-    currentWeaponMesh.position.y = (gameState.equippedWeapon === 'shotgun' ? -0.24 : -0.22) + bobOffset - weaponRecoil * 0.05 - isReloadingAnimation * 0.15;
+    // Adjust Y position during ADS so iron sights / Red Dot Sight align directly with center eye line
+    const basePosY = gameState.equippedWeapon === 'shotgun' ? -0.24 : -0.22;
+    const adsYOffset = isAimingDownSights ? (gameState.attachments.reddot ? 0.07 : 0.04) : 0;
+
+    currentWeaponMesh.position.y = basePosY + adsYOffset + bobOffset - weaponRecoil * 0.05 - isReloadingAnimation * 0.15;
     currentWeaponMesh.position.z = (gameState.equippedWeapon === 'pistol' ? -0.45 : -0.52) + weaponRecoil * 0.1;
     currentWeaponMesh.rotation.x = weaponRecoil * 0.3 + isReloadingAnimation * 0.6;
     currentWeaponMesh.rotation.z = isReloadingAnimation * -0.4;
@@ -794,9 +874,44 @@ function animate() {
         }
       }
 
-      // Move toward player position
+      // Move toward player position with barricade collision checking
       const dir = playerVec.clone().sub(enemy.mesh.position).normalize();
-      enemy.mesh.position.addScaledVector(dir, enemy.speed);
+      const nextPos = enemy.mesh.position.clone().addScaledVector(dir, enemy.speed);
+
+      // Check if enemy next step hits a solid barricade
+      let blockedByBarricade = false;
+      barricadeObstacles.forEach(box => {
+        if (nextPos.x >= box.min.x - 0.3 && nextPos.x <= box.max.x + 0.3 &&
+            nextPos.z >= box.min.z - 0.3 && nextPos.z <= box.max.z + 0.3) {
+          blockedByBarricade = true;
+        }
+      });
+
+      if (!blockedByBarricade) {
+        enemy.mesh.position.copy(nextPos);
+      } else {
+        // Slide around barricade along X or Z axis
+        const slideX = enemy.mesh.position.clone();
+        slideX.x += dir.x * enemy.speed;
+        let blockedX = false;
+        barricadeObstacles.forEach(box => {
+          if (slideX.x >= box.min.x - 0.3 && slideX.x <= box.max.x + 0.3 &&
+              slideX.z >= box.min.z - 0.3 && slideX.z <= box.max.z + 0.3) blockedX = true;
+        });
+
+        if (!blockedX) {
+          enemy.mesh.position.x = slideX.x;
+        } else {
+          const slideZ = enemy.mesh.position.clone();
+          slideZ.z += dir.z * enemy.speed;
+          let blockedZ = false;
+          barricadeObstacles.forEach(box => {
+            if (slideZ.x >= box.min.x - 0.3 && slideZ.x <= box.max.x + 0.3 &&
+                slideZ.z >= box.min.z - 0.3 && slideZ.z <= box.max.z + 0.3) blockedZ = true;
+          });
+          if (!blockedZ) enemy.mesh.position.z = slideZ.z;
+        }
+      }
 
       // Human walking animation (leg & arm swinging)
       enemy.walkCycle += 0.15;
@@ -812,13 +927,25 @@ function animate() {
         enemy.hpBarGroup.quaternion.copy(camera.quaternion);
       }
 
-      // Check collision with Cop player
+      // Check proximity for Melee Attack Animation & Damage Loop
       const dist = enemy.mesh.position.distanceTo(copPlayerMesh.position);
-      if (dist < 0.6) {
-        damagePlayer(15);
-        scene.remove(enemy.mesh);
-        activeEnemies.splice(i, 1);
-        checkRoundStatus();
+      if (dist < 1.1) {
+        // Close-quarters Melee Combat State (Attacking Animation)
+        enemy.meleeCooldown += 1;
+
+        // Perform arm punch/swing animation towards player
+        const swingAngle = Math.sin(enemy.meleeCooldown * 0.3) * 0.8;
+        if (enemy.rightArm) enemy.rightArm.rotation.x = -Math.PI / 3 + swingAngle;
+        if (enemy.leftArm) enemy.leftArm.rotation.x = -Math.PI / 3 - swingAngle;
+
+        // Apply continuous melee damage on attack interval (every 35 frames)
+        if (enemy.meleeCooldown % 35 === 0) {
+          damagePlayer(10);
+          playSound('hit');
+        }
+      } else {
+        // Reset arm elevation when not in melee range
+        enemy.meleeCooldown = 0;
       }
     }
 
@@ -1388,6 +1515,48 @@ function setupEventListeners() {
     }
   });
 
+  if (buyAttReddotBtn) {
+    buyAttReddotBtn.addEventListener('click', () => {
+      if (!gameState.attachments.reddot) {
+        if (gameState.cash >= 200) {
+          gameState.cash -= 200;
+          gameState.attachments.reddot = true;
+          playSound('buy');
+          showToast('🔧 Red Dot Sight Mounted!');
+        } else {
+          showToast('❌ Not enough cash for Red Dot Sight!');
+        }
+      } else {
+        gameState.attachments.reddot = false;
+        showToast('🔧 Red Dot Sight Removed.');
+      }
+      updateFPSWeaponMesh();
+      updateUI();
+      updateBuyMenuUI();
+    });
+  }
+
+  if (buyAttLaserBtn) {
+    buyAttLaserBtn.addEventListener('click', () => {
+      if (!gameState.attachments.laser) {
+        if (gameState.cash >= 150) {
+          gameState.cash -= 150;
+          gameState.attachments.laser = true;
+          playSound('buy');
+          showToast('🔦 Tactical Laser Sight Mounted!');
+        } else {
+          showToast('❌ Not enough cash for Laser Sight!');
+        }
+      } else {
+        gameState.attachments.laser = false;
+        showToast('🔦 Tactical Laser Sight Removed.');
+      }
+      updateFPSWeaponMesh();
+      updateUI();
+      updateBuyMenuUI();
+    });
+  }
+
   sfxToggleBtn.addEventListener('click', () => {
     gameState.sfxMuted = !gameState.sfxMuted;
     sfxToggleBtn.textContent = gameState.sfxMuted ? '🔇 SFX Off' : '🔊 SFX On';
@@ -1536,6 +1705,32 @@ function updateBuyMenuUI() {
     buyWpnRifleBtn.textContent = gameState.equippedWeapon === 'rifle' ? 'EQUIPPED' : 'EQUIP';
     buyWpnRifleBtn.className = `buy-item-btn ${gameState.equippedWeapon === 'rifle' ? 'equipped' : ''}`;
     buyWpnRifleBtn.disabled = false;
+  }
+
+  // Red Dot Attachment Button
+  if (buyAttReddotBtn) {
+    if (gameState.attachments.reddot) {
+      buyAttReddotBtn.textContent = 'MOUNTED (REMOVE)';
+      buyAttReddotBtn.className = 'buy-item-btn equipped';
+      buyAttReddotBtn.disabled = false;
+    } else {
+      buyAttReddotBtn.textContent = 'BUY ($200)';
+      buyAttReddotBtn.className = 'buy-item-btn';
+      buyAttReddotBtn.disabled = gameState.cash < 200;
+    }
+  }
+
+  // Laser Attachment Button
+  if (buyAttLaserBtn) {
+    if (gameState.attachments.laser) {
+      buyAttLaserBtn.textContent = 'MOUNTED (REMOVE)';
+      buyAttLaserBtn.className = 'buy-item-btn equipped';
+      buyAttLaserBtn.disabled = false;
+    } else {
+      buyAttLaserBtn.textContent = 'BUY ($150)';
+      buyAttLaserBtn.className = 'buy-item-btn';
+      buyAttLaserBtn.disabled = gameState.cash < 150;
+    }
   }
 }
 
