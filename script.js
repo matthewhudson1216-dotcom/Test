@@ -1,4 +1,4 @@
-// Game State
+// Game State for 3D City Cops vs. Robbers Shooter
 let gameState = {
   score: 0,
   clickPower: 1,
@@ -12,8 +12,8 @@ let gameState = {
   lastSaveTimestamp: Date.now(),
   sfxMuted: false,
   skin: 'default',
-  theme: 'cyan',
-  selectedWeapon: 'laser', // laser, plasma, missiles
+  theme: 'cyan', // cyan (Downtown Night), nebula (Sunset Harbor), cyberpunk (Cyber Neon), gold (Financial District)
+  selectedWeapon: 'laser', // laser (Pistol), plasma (Shotgun), missiles (Rifle)
   health: 100,
   maxHealth: 100,
   tech: {
@@ -39,26 +39,26 @@ let gameState = {
   }
 };
 
-// Definitions for Combat Badges / Achievements
+// Commendation Badges Definitions
 const achievementsDef = [
-  { id: 'firstClick', title: 'First Shot', desc: 'Fire weapons 1 time', icon: '⚡' },
-  { id: 'hundredEarned', title: 'Bounty Hunter', desc: 'Earn 100 total bounty points', icon: '🪙' },
-  { id: 'firstDrone', title: 'Turret Garrison', desc: 'Buy your first Defense Drone', icon: '🤖' },
-  { id: 'goldenCatcher', title: 'Sharpshooter', desc: 'Destroy a Golden Core', icon: '🌟' },
-  { id: 'clickMaster', title: 'Ace Pilot', desc: 'Fire 100 total shots', icon: '🚀' },
-  { id: 'cosmicArchitect', title: 'Station Overseer', desc: 'Buy a Station Core Matrix', icon: '🌌' },
-  { id: 'firstAscension', title: 'Cosmic Rebirth', desc: 'Perform your first Ascension', icon: '🪐' },
-  { id: 'asteroidHunter', title: 'Boss Slayer', desc: 'Defeat a Cosmic Boss Enemy', icon: '☠️' }
+  { id: 'firstClick', title: 'First Shot', desc: 'Fire weapon 1 time', icon: '🔫' },
+  { id: 'hundredEarned', title: 'Bounty Collector', desc: 'Seize $100 total bounty', icon: '💵' },
+  { id: 'firstDrone', title: 'City Patrol', desc: 'Deploy first Patrol Cruiser', icon: '🚔' },
+  { id: 'goldenCatcher', title: 'Sharpshooter', desc: 'Neutralize 1 Robber', icon: '🎯' },
+  { id: 'clickMaster', title: 'Tactical Veteran', desc: 'Fire 100 total rounds', icon: '⚡' },
+  { id: 'cosmicArchitect', title: 'Precinct Overseer', desc: 'Deploy Police Headquarters Matrix', icon: '🏢' },
+  { id: 'firstAscension', title: 'Commissioner Rank', desc: 'Earn your first Department Promotion', icon: '⭐' },
+  { id: 'asteroidHunter', title: 'Heist Neutralizer', desc: 'Defeat a Robber Getaway Van Boss', icon: '🚨' }
 ];
 
 // Weapon Definitions
 const weaponsDef = {
-  laser: { name: 'Pulse Laser', heatPerShot: 12, cooldown: 180, multiplier: 1, color: 0x38bdf8 },
-  plasma: { name: 'Plasma Cannon', heatPerShot: 25, cooldown: 400, multiplier: 2.5, color: 0xf43f5e },
-  missiles: { name: 'Homing Missiles', heatPerShot: 35, cooldown: 650, multiplier: 4.5, color: 0xfbbf24 }
+  laser: { name: 'Service Pistol', heatPerShot: 10, cooldown: 180, multiplier: 1, color: 0x38bdf8 },
+  plasma: { name: 'Tactical Shotgun', heatPerShot: 22, cooldown: 400, multiplier: 2.5, color: 0xef4444 },
+  missiles: { name: 'Assault Rifle', heatPerShot: 15, cooldown: 200, multiplier: 3.5, color: 0xfbbf24 }
 };
 
-// Audio Synthesizer (Web Audio API)
+// Web Audio API Synthesizer
 let audioCtx = null;
 
 function initAudio() {
@@ -86,31 +86,42 @@ function playSound(type) {
   const now = audioCtx.currentTime;
 
   if (type === 'laser') {
+    // Service Pistol Gunshot
     osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(800, now);
-    osc.frequency.exponentialRampToValueAtTime(150, now + 0.1);
-    gain.gain.setValueAtTime(0.18, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-    osc.start(now);
-    osc.stop(now + 0.1);
-  } else if (type === 'plasma') {
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(400, now);
-    osc.frequency.exponentialRampToValueAtTime(80, now + 0.2);
+    osc.frequency.setValueAtTime(600, now);
+    osc.frequency.exponentialRampToValueAtTime(100, now + 0.08);
     gain.gain.setValueAtTime(0.25, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-    osc.start(now);
-    osc.stop(now + 0.2);
-  } else if (type === 'hit') {
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(300, now);
-    osc.frequency.exponentialRampToValueAtTime(600, now + 0.08);
-    gain.gain.setValueAtTime(0.2, now);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
     osc.start(now);
     osc.stop(now + 0.08);
-  } else if (type === 'buy') {
+  } else if (type === 'plasma') {
+    // Tactical Shotgun Blast
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(350, now);
+    osc.frequency.exponentialRampToValueAtTime(50, now + 0.18);
+    gain.gain.setValueAtTime(0.35, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.18);
+    osc.start(now);
+    osc.stop(now + 0.18);
+  } else if (type === 'missiles') {
+    // Assault Rifle Burst
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(800, now);
+    osc.frequency.exponentialRampToValueAtTime(200, now + 0.06);
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
+    osc.start(now);
+    osc.stop(now + 0.06);
+  } else if (type === 'hit') {
     osc.type = 'triangle';
+    osc.frequency.setValueAtTime(400, now);
+    osc.frequency.exponentialRampToValueAtTime(700, now + 0.06);
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
+    osc.start(now);
+    osc.stop(now + 0.06);
+  } else if (type === 'buy') {
+    osc.type = 'sine';
     osc.frequency.setValueAtTime(523.25, now);
     osc.frequency.setValueAtTime(659.25, now + 0.08);
     osc.frequency.setValueAtTime(783.99, now + 0.16);
@@ -118,14 +129,15 @@ function playSound(type) {
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
     osc.start(now);
     osc.stop(now + 0.25);
-  } else if (type === 'boss') {
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(120, now);
-    osc.frequency.exponentialRampToValueAtTime(40, now + 0.6);
-    gain.gain.setValueAtTime(0.35, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
+  } else if (type === 'siren') {
+    // Police Siren
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(600, now);
+    osc.frequency.linearRampToValueAtTime(900, now + 0.3);
+    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
     osc.start(now);
-    osc.stop(now + 0.6);
+    osc.stop(now + 0.5);
   }
 }
 
@@ -149,7 +161,6 @@ const heatBarFill = document.getElementById('heat-bar-fill');
 const bossHud = document.getElementById('boss-hud');
 const bossBarFill = document.getElementById('boss-bar-fill');
 
-const skinSelect = document.getElementById('skin-select');
 const themeSelect = document.getElementById('theme-select');
 
 const wpnLaserBtn = document.getElementById('wpn-laser');
@@ -211,7 +222,8 @@ const upgradesUI = {
 
 // Three.js 3D Variables
 let scene, camera, renderer;
-let mainCrystal, crystalWireframe, starField;
+let cityGroup;
+let policeSirenLightRed, policeSirenLightBlue;
 
 let activeEnemies = [];
 let activeProjectiles = [];
@@ -226,16 +238,14 @@ let frenzyEndTime = 0;
 let frenzyMultiplier = 1;
 let recentClicksTimestamps = [];
 
-let orbitingSatellites = [];
+let orbitingCruisers = [];
 let raycaster, mouse;
-let targetScale = 1;
-let currentScale = 1;
 
 const themePalettes = {
-  cyan: { light1: 0x38bdf8, light2: 0x818cf8, star: 0x38bdf8, wire: 0x38bdf8 },
-  nebula: { light1: 0xc084fc, light2: 0xe879f9, star: 0xc084fc, wire: 0xe879f9 },
-  cyberpunk: { light1: 0x22d3ee, light2: 0xf43f5e, star: 0x22d3ee, wire: 0xf43f5e },
-  gold: { light1: 0xfbbf24, light2: 0xf59e0b, star: 0xfbbf24, wire: 0xd97706 }
+  cyan: { bg: 0x020617, building: 0x1e293b, lightRed: 0xef4444, lightBlue: 0x0284c7 },
+  nebula: { bg: 0x1e1b4b, building: 0x312e81, lightRed: 0xf43f5e, lightBlue: 0x818cf8 },
+  cyberpunk: { bg: 0x09090b, building: 0x27272a, lightRed: 0xff0055, lightBlue: 0x00f0ff },
+  gold: { bg: 0x1c1917, building: 0x292524, lightRed: 0xf59e0b, lightBlue: 0x38bdf8 }
 };
 
 // Initialization
@@ -245,12 +255,12 @@ function init() {
   setupEventListeners();
   renderAchievementsUI();
   updateUI();
-  update3DSatellites();
+  update3DCruisers();
   checkOfflineEarnings();
 
   // Primary Game Loop (every 100ms)
   setInterval(() => {
-    // Passive turret income
+    // Passive income from units
     let currentCps = getEffectiveCPS();
     if (currentCps > 0) {
       const passiveGain = currentCps / 10;
@@ -262,7 +272,7 @@ function init() {
 
     // Heat Cooldown & Decay
     if (weaponHeat > 0) {
-      weaponHeat = Math.max(0, weaponHeat - 1.8);
+      weaponHeat = Math.max(0, weaponHeat - 2.0);
       if (weaponHeat === 0 && isOverheated) {
         isOverheated = false;
         showToast('✅ Weapon Cooled Down! Ready to Fire.');
@@ -270,7 +280,7 @@ function init() {
     }
     updateShooterHUD();
 
-    // Check Combo Streak timeout (reset after 3s without hits)
+    // Check Combo Streak timeout
     if (comboStreak > 0 && Date.now() - lastHitTime > 3000) {
       comboStreak = 0;
       updateShooterHUD();
@@ -291,19 +301,19 @@ function init() {
   // Auto-save every 10 seconds
   setInterval(() => { saveGame(); }, 10000);
 
-  // Spawn Enemy Pirates & Drones (every 4 seconds)
+  // Spawn Robber Enemies (every 3 seconds)
   setInterval(() => {
-    if (activeEnemies.length < 6 && Math.random() < 0.75) {
-      spawnEnemyDrone();
+    if (activeEnemies.length < 7 && Math.random() < 0.85) {
+      spawnRobberEnemy();
     }
-  }, 4000);
+  }, 3000);
 
-  // Spawn Cosmic Boss encounter (every 45 seconds if no boss active)
+  // Spawn Robber Getaway Van Boss (every 40 seconds)
   setInterval(() => {
-    if (!activeBoss && Math.random() < 0.40) {
-      spawnCosmicBoss();
+    if (!activeBoss && Math.random() < 0.45) {
+      spawnRobberBossVan();
     }
-  }, 45000);
+  }, 40000);
 }
 
 function getPrestigeMultiplier() {
@@ -311,14 +321,14 @@ function getPrestigeMultiplier() {
 }
 
 function getComboMultiplier() {
-  return 1 + Math.min(comboStreak, 20) * 0.2; // up to 5x boost on 20 streak
+  return 1 + Math.min(comboStreak, 20) * 0.2;
 }
 
 function getEffectiveClickPower() {
   let basePower = gameState.clickPower;
   if (gameState.tech.synergy2) {
-    const prismCps = gameState.upgrades.grandma.count * gameState.upgrades.grandma.cps;
-    basePower += prismCps * 0.05;
+    const swatCps = gameState.upgrades.grandma.count * gameState.upgrades.grandma.cps;
+    basePower += swatCps * 0.05;
   }
 
   const wpn = weaponsDef[gameState.selectedWeapon] || weaponsDef.laser;
@@ -327,12 +337,12 @@ function getEffectiveClickPower() {
 }
 
 function getEffectiveCPS() {
-  let droneCps = gameState.upgrades.cursor.count * gameState.upgrades.cursor.cps;
+  let cruiserCps = gameState.upgrades.cursor.count * gameState.upgrades.cursor.cps;
   if (gameState.tech.synergy1) {
-    droneCps *= (1 + gameState.upgrades.grandma.count * 0.50);
+    cruiserCps *= (1 + gameState.upgrades.grandma.count * 0.50);
   }
 
-  let totalCps = droneCps +
+  let totalCps = cruiserCps +
                  (gameState.upgrades.grandma.count * gameState.upgrades.grandma.cps) +
                  (gameState.upgrades.factory.count * gameState.upgrades.factory.cps);
 
@@ -340,49 +350,35 @@ function getEffectiveCPS() {
   return totalCps;
 }
 
-// Initialize Three.js 3D Scene
+// Initialize Three.js 3D Procedural City Scene
 function init3D() {
   const container = canvasContainer;
   const width = container.clientWidth || 400;
   const height = container.clientHeight || 270;
 
   scene = new THREE.Scene();
-  camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-  camera.position.z = 6;
+  camera = new THREE.PerspectiveCamera(50, width / height, 0.1, 1000);
+  camera.position.set(0, 2.5, 6.5);
+  camera.lookAt(0, 0, 0);
 
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setSize(width, height);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   container.appendChild(renderer.domElement);
 
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+  const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
   scene.add(ambientLight);
 
-  const pointLight1 = new THREE.PointLight(0x38bdf8, 2, 50);
-  pointLight1.position.set(5, 5, 5);
-  scene.add(pointLight1);
+  // Flashing Police Emergency Lights (Red & Blue)
+  policeSirenLightRed = new THREE.PointLight(0xef4444, 3, 20);
+  policeSirenLightRed.position.set(-3, 4, 3);
+  scene.add(policeSirenLightRed);
 
-  const pointLight2 = new THREE.PointLight(0x818cf8, 2, 50);
-  pointLight2.position.set(-5, -5, -2);
-  scene.add(pointLight2);
+  policeSirenLightBlue = new THREE.PointLight(0x0284c7, 3, 20);
+  policeSirenLightBlue.position.set(3, 4, 3);
+  scene.add(policeSirenLightBlue);
 
-  createMainCrystalMesh();
-
-  // Background 3D Particles Field
-  const starsGeometry = new THREE.BufferGeometry();
-  const starsCount = 150;
-  const starPositions = new Float32Array(starsCount * 3);
-
-  for (let i = 0; i < starsCount * 3; i += 3) {
-    starPositions[i] = (Math.random() - 0.5) * 20;
-    starPositions[i + 1] = (Math.random() - 0.5) * 20;
-    starPositions[i + 2] = (Math.random() - 0.5) * 20;
-  }
-
-  starsGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-  const starsMaterial = new THREE.PointsMaterial({ color: 0x38bdf8, size: 0.08, transparent: true, opacity: 0.6 });
-  starField = new THREE.Points(starsGeometry, starsMaterial);
-  scene.add(starField);
+  createProceduralCity();
 
   raycaster = new THREE.Raycaster();
   mouse = new THREE.Vector2();
@@ -392,112 +388,120 @@ function init3D() {
   animate();
 }
 
-function createMainCrystalMesh() {
-  if (mainCrystal) scene.remove(mainCrystal);
-  if (crystalWireframe) scene.remove(crystalWireframe);
+function createProceduralCity() {
+  if (cityGroup) scene.remove(cityGroup);
+  cityGroup = new THREE.Group();
 
-  let geom, wireGeom;
-  let matProps = { roughness: 0.1, metalness: 0.8, flatShading: true, emissiveIntensity: 0.4 };
+  // Asphalt Ground / Street
+  const groundGeom = new THREE.PlaneGeometry(16, 16);
+  const groundMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.8 });
+  const ground = new THREE.Mesh(groundGeom, groundMat);
+  ground.rotation.x = -Math.PI / 2;
+  ground.position.y = -1.2;
+  cityGroup.add(ground);
 
-  if (gameState.skin === 'ruby') {
-    geom = new THREE.OctahedronGeometry(1.4, 0);
-    wireGeom = new THREE.OctahedronGeometry(1.5, 0);
-    matProps.color = 0xf43f5e;
-    matProps.emissive = 0xbe123c;
-  } else if (gameState.skin === 'emerald') {
-    geom = new THREE.CylinderGeometry(0.9, 0.9, 2, 6);
-    wireGeom = new THREE.CylinderGeometry(0.95, 0.95, 2.1, 6);
-    matProps.color = 0x10b981;
-    matProps.emissive = 0x047857;
-  } else if (gameState.skin === 'rainbow') {
-    geom = new THREE.DodecahedronGeometry(1.3, 0);
-    wireGeom = new THREE.DodecahedronGeometry(1.4, 0);
-    matProps.color = 0xc084fc;
-    matProps.emissive = 0x7e22ce;
-  } else {
-    geom = new THREE.IcosahedronGeometry(1.4, 0);
-    wireGeom = new THREE.IcosahedronGeometry(1.5, 0);
-    matProps.color = 0x0284c7;
-    matProps.emissive = 0x0369a1;
+  // Procedural Buildings Grid
+  const buildingMat = new THREE.MeshStandardMaterial({
+    color: 0x1e293b,
+    metalness: 0.6,
+    roughness: 0.3,
+    flatShading: true
+  });
+
+  const windowMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24 });
+
+  for (let x = -6; x <= 6; x += 2.2) {
+    for (let z = -6; z <= 2; z += 2.2) {
+      if (Math.abs(x) < 1.5 && Math.abs(z) < 1.5) continue; // Keep central precinct area clear
+
+      const h = 1.5 + Math.random() * 3.5;
+      const bGeom = new THREE.BoxGeometry(1.4, h, 1.4);
+      const bMesh = new THREE.Mesh(bGeom, buildingMat);
+      bMesh.position.set(x + (Math.random() - 0.5) * 0.3, -1.2 + h / 2, z + (Math.random() - 0.5) * 0.3);
+      cityGroup.add(bMesh);
+
+      // Add building window lights
+      if (Math.random() < 0.6) {
+        const wGeom = new THREE.PlaneGeometry(0.2, 0.2);
+        const wMesh = new THREE.Mesh(wGeom, windowMat);
+        wMesh.position.set(bMesh.position.x, bMesh.position.y + (Math.random() - 0.5) * (h * 0.6), bMesh.position.z + 0.71);
+        cityGroup.add(wMesh);
+      }
+    }
   }
 
-  const material = new THREE.MeshStandardMaterial(matProps);
-  mainCrystal = new THREE.Mesh(geom, material);
-  scene.add(mainCrystal);
+  // Central Police Precinct Monument
+  const pGeom = new THREE.BoxGeometry(1.8, 1.6, 1.8);
+  const pMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.8, roughness: 0.2 });
+  const precinctMesh = new THREE.Mesh(pGeom, pMat);
+  precinctMesh.position.set(0, -0.4, 0);
+  cityGroup.add(precinctMesh);
 
-  const wireMaterial = new THREE.MeshBasicMaterial({ color: matProps.color, wireframe: true, transparent: true, opacity: 0.4 });
-  crystalWireframe = new THREE.Mesh(wireGeom, wireMaterial);
-  scene.add(crystalWireframe);
+  scene.add(cityGroup);
 }
 
 function applyTheme(themeKey) {
   const pal = themePalettes[themeKey] || themePalettes.cyan;
-  if (starField) starField.material.color.setHex(pal.star);
+  if (scene) scene.background = new THREE.Color(pal.bg);
 }
 
-function spawnEnemyDrone() {
+function spawnRobberEnemy() {
   if (!scene) return;
-  const geom = new THREE.OctahedronGeometry(0.22, 0);
+  // Robber Mesh (Aggressive Red Capsule / Cylinder with Mask emblem)
+  const geom = new THREE.CylinderGeometry(0.2, 0.25, 0.6, 8);
   const mat = new THREE.MeshStandardMaterial({
-    color: 0xf43f5e,
-    metalness: 0.8,
-    roughness: 0.2,
-    emissive: 0xbe123c,
-    emissiveIntensity: 0.8
+    color: 0xef4444,
+    metalness: 0.7,
+    roughness: 0.3,
+    emissive: 0x991b1b,
+    emissiveIntensity: 0.6
   });
   const mesh = new THREE.Mesh(geom, mat);
 
   const angle = Math.random() * Math.PI * 2;
-  const startDist = 4.2;
-  mesh.position.set(Math.cos(angle) * startDist, Math.sin(angle) * startDist, (Math.random() - 0.5) * 1.5);
+  const startDist = 5.0;
+  mesh.position.set(Math.cos(angle) * startDist, -0.9, Math.sin(angle) * startDist);
 
   const hp = 1 + Math.floor(gameState.ascensionCount * 2);
-  const enemy = { mesh, hp, maxHp: hp, speed: 0.015 + Math.random() * 0.01, isBoss: false };
+  const enemy = { mesh, hp, maxHp: hp, speed: 0.02 + Math.random() * 0.015 };
   scene.add(mesh);
   activeEnemies.push(enemy);
 }
 
-function spawnCosmicBoss() {
+function spawnRobberBossVan() {
   if (activeBoss || !scene) return;
-  const geom = new THREE.DodecahedronGeometry(0.7, 1);
+  // Getaway Van Mesh (Large Heavy Box)
+  const geom = new THREE.BoxGeometry(1.4, 0.9, 2.2);
   const mat = new THREE.MeshStandardMaterial({
-    color: 0xbe123c,
+    color: 0xdc2626,
     metalness: 0.9,
     roughness: 0.1,
-    emissive: 0xf43f5e,
-    emissiveIntensity: 0.9
+    emissive: 0x7f1d1d,
+    emissiveIntensity: 0.8
   });
   const mesh = new THREE.Mesh(geom, mat);
-  mesh.position.set(0, 2.2, 0);
+  mesh.position.set(0, -0.75, -5.5);
 
-  const hp = Math.max(10, Math.floor(getEffectiveClickPower() * 8));
-  activeBoss = { mesh, hp, maxHp: hp, angle: 0, radius: 2.2 };
+  const hp = Math.max(12, Math.floor(getEffectiveClickPower() * 9));
+  activeBoss = { mesh, hp, maxHp: hp, angle: 0, speed: 0.02 };
   scene.add(mesh);
 
   bossHud.classList.remove('hidden');
-  playSound('boss');
-  showToast('⚠️ COSMIC BOSS INCOMING! Destroy it before it breaches the station!');
+  playSound('siren');
+  showToast('🚨 ROBBER GETAWAY VAN SPOTTED! Stop the heist before they breach!');
 }
 
 function animate() {
   requestAnimationFrame(animate);
 
-  if (mainCrystal) {
-    mainCrystal.rotation.x += 0.005;
-    mainCrystal.rotation.y += 0.008;
-    crystalWireframe.rotation.x -= 0.003;
-    crystalWireframe.rotation.y -= 0.005;
-
-    currentScale += (targetScale - currentScale) * 0.2;
-    mainCrystal.scale.set(currentScale, currentScale, currentScale);
-    crystalWireframe.scale.set(currentScale * 1.05, currentScale * 1.05, currentScale * 1.05);
-
-    if (Math.abs(currentScale - targetScale) < 0.01) {
-      targetScale = 1;
-    }
+  // Police Siren Flashing Animation
+  const time = Date.now() * 0.005;
+  if (policeSirenLightRed && policeSirenLightBlue) {
+    policeSirenLightRed.intensity = Math.sin(time) > 0 ? 4 : 0.5;
+    policeSirenLightBlue.intensity = Math.cos(time) > 0 ? 4 : 0.5;
   }
 
-  // Animate Active Projectiles
+  // Animate Gunshot Projectiles
   for (let i = activeProjectiles.length - 1; i >= 0; i--) {
     const proj = activeProjectiles[i];
     proj.mesh.position.add(proj.velocity);
@@ -509,50 +513,47 @@ function animate() {
     }
   }
 
-  // Animate Enemy Drones towards Station
+  // Animate Robber Enemies moving towards Precinct
   for (let i = activeEnemies.length - 1; i >= 0; i--) {
     const enemy = activeEnemies[i];
-    enemy.mesh.rotation.x += 0.03;
-    enemy.mesh.rotation.y += 0.03;
+    enemy.mesh.rotation.y += 0.05;
 
-    // Move towards center
-    const dir = new THREE.Vector3(0, 0, 0).sub(enemy.mesh.position).normalize();
+    // Move towards center precinct
+    const dir = new THREE.Vector3(0, -0.9, 0).sub(enemy.mesh.position).normalize();
     enemy.mesh.position.addScaledVector(dir, enemy.speed);
 
-    // Check if enemy hit station (radius < 1.4)
-    if (enemy.mesh.position.length() < 1.4) {
-      gameState.health = Math.max(0, gameState.health - 10);
+    // Check if robber reached precinct (radius < 1.0)
+    if (new THREE.Vector2(enemy.mesh.position.x, enemy.mesh.position.z).length() < 1.0) {
+      gameState.health = Math.max(0, gameState.health - 12);
       scene.remove(enemy.mesh);
       activeEnemies.splice(i, 1);
       comboStreak = 0;
       updateShooterHUD();
-      showToast('💥 Station Shield Hit by Enemy Drone!');
+      showToast('💥 Precinct Shield Damaged by Robbers!');
 
       if (gameState.health <= 0) {
         gameState.health = gameState.maxHealth;
-        showToast('🛡️ Shield Recharged! Station Rebooted.');
+        showToast('🛡️ SWAT Reinforcements Arrived! Precinct Shield Restored.');
       }
     }
   }
 
-  // Animate Boss
+  // Animate Boss Van
   if (activeBoss) {
-    activeBoss.angle += 0.01;
-    activeBoss.mesh.position.x = Math.cos(activeBoss.angle) * activeBoss.radius;
-    activeBoss.mesh.position.y = Math.sin(activeBoss.angle) * (activeBoss.radius * 0.6);
-    activeBoss.mesh.rotation.x += 0.02;
-    activeBoss.mesh.rotation.y += 0.02;
+    activeBoss.mesh.position.z += activeBoss.speed;
+    if (activeBoss.mesh.position.z > 4.5) {
+      activeBoss.speed = -Math.abs(activeBoss.speed);
+    } else if (activeBoss.mesh.position.z < -5.5) {
+      activeBoss.speed = Math.abs(activeBoss.speed);
+    }
   }
 
-  if (starField) starField.rotation.y += 0.0008;
-
-  orbitingSatellites.forEach(sat => {
-    sat.angle += sat.speed;
-    sat.mesh.position.x = Math.cos(sat.angle) * sat.radius;
-    sat.mesh.position.z = Math.sin(sat.angle) * sat.radius;
-    sat.mesh.position.y = Math.sin(sat.angle * 2) * 0.4;
-    sat.mesh.rotation.x += 0.02;
-    sat.mesh.rotation.y += 0.02;
+  // Animate Patrol Cruisers Orbiting Precinct
+  orbitingCruisers.forEach(cruiser => {
+    cruiser.angle += cruiser.speed;
+    cruiser.mesh.position.x = Math.cos(cruiser.angle) * cruiser.radius;
+    cruiser.mesh.position.z = Math.sin(cruiser.angle) * cruiser.radius;
+    cruiser.mesh.rotation.y = -cruiser.angle;
   });
 
   renderer.render(scene, camera);
@@ -571,7 +572,7 @@ function onWindowResize() {
 
 function handleShooterClick(event) {
   if (isOverheated) {
-    showToast('⚠️ WEAPONS OVERHEATED! Wait for Cooldown.');
+    showToast('⚠️ WEAPON OVERHEATED! Wait for Cooldown.');
     return;
   }
 
@@ -583,24 +584,24 @@ function handleShooterClick(event) {
   weaponHeat = Math.min(100, weaponHeat + wpn.heatPerShot);
   if (weaponHeat >= 100) {
     isOverheated = true;
-    showToast('🔥 WEAPONS OVERHEATED!');
+    showToast('🔥 WEAPON OVERHEATED!');
   }
 
   raycaster.setFromCamera(mouse, camera);
 
-  // Fire Visual 3D Laser Bolt
-  fireLaserBeam(event.clientX - rect.left, event.clientY - rect.top, wpn.color);
+  // Fire Gunshot Bullet Tracer
+  fireBulletTracer(event.clientX - rect.left, event.clientY - rect.top, wpn.color);
 
-  // Check Boss Hit
+  // Check Boss Van Hit
   if (activeBoss) {
     const bossIntersects = raycaster.intersectObject(activeBoss.mesh);
     if (bossIntersects.length > 0) {
-      hitBoss(event.clientX - rect.left, event.clientY - rect.top);
+      hitBossVan(event.clientX - rect.left, event.clientY - rect.top);
       return;
     }
   }
 
-  // Check Enemy Drone Hit
+  // Check Robber Enemy Hit
   let hitEnemy = false;
   for (let i = activeEnemies.length - 1; i >= 0; i--) {
     const enemy = activeEnemies[i];
@@ -621,46 +622,39 @@ function handleShooterClick(event) {
         comboStreak += 1;
         lastHitTime = Date.now();
 
-        spawnFloatingText(`+${bounty} HIT!`, event.clientX - rect.left, event.clientY - rect.top, true);
+        spawnFloatingText(`+$${bounty} BUST!`, event.clientX - rect.left, event.clientY - rect.top, true);
         playSound('hit');
       }
       break;
     }
   }
 
-  // Click Main Crystal or Area
-  const intersects = raycaster.intersectObjects([mainCrystal, crystalWireframe]);
-  if (intersects.length > 0 || event.target === clickBtn) {
-    triggerShot(event.clientX ? event.clientX - rect.left : rect.width / 2, event.clientY ? event.clientY - rect.top : rect.height / 2);
-  } else if (!hitEnemy) {
-    // Reset combo streak on complete miss
-    comboStreak = 0;
-    updateShooterHUD();
-  }
+  // General City Shot
+  triggerShot(event.clientX ? event.clientX - rect.left : rect.width / 2, event.clientY ? event.clientY - rect.top : rect.height / 2);
 }
 
-function fireLaserBeam(targetX, targetY, hexColor) {
+function fireBulletTracer(targetX, targetY, hexColor) {
   if (!scene) return;
-  const geom = new THREE.CylinderGeometry(0.04, 0.04, 1, 6);
+  const geom = new THREE.CylinderGeometry(0.03, 0.03, 0.6, 6);
   const mat = new THREE.MeshBasicMaterial({ color: hexColor });
   const proj = new THREE.Mesh(geom, mat);
 
-  proj.position.set(0, -2, 4); // fire from bottom camera viewpoint
+  proj.position.set(0, -1, 5); // Fire from police cop viewpoint
   const worldTarget = new THREE.Vector3(
-    ((targetX / canvasContainer.clientWidth) * 2 - 1) * 3,
-    (-((targetY / canvasContainer.clientHeight) * 2 - 1)) * 2,
-    0
+    ((targetX / canvasContainer.clientWidth) * 2 - 1) * 4,
+    (-((targetY / canvasContainer.clientHeight) * 2 - 1)) * 3,
+    -3
   );
 
-  const vel = worldTarget.sub(proj.position).normalize().multiplyScalar(0.4);
+  const vel = worldTarget.sub(proj.position).normalize().multiplyScalar(0.45);
   proj.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vel.clone().normalize());
 
   scene.add(proj);
-  activeProjectiles.push({ mesh: proj, velocity: vel, life: 15 });
-  playSound(gameState.selectedWeapon === 'plasma' ? 'plasma' : 'laser');
+  activeProjectiles.push({ mesh: proj, velocity: vel, life: 14 });
+  playSound(gameState.selectedWeapon);
 }
 
-function hitBoss(x, y) {
+function hitBossVan(x, y) {
   if (!activeBoss) return;
   const damage = getEffectiveClickPower();
   activeBoss.hp -= damage;
@@ -668,7 +662,7 @@ function hitBoss(x, y) {
   comboStreak += 1;
   lastHitTime = Date.now();
 
-  spawnFloatingText(`-${damage}`, x, y, true);
+  spawnFloatingText(`-$${damage}`, x, y, true);
   playSound('hit');
 
   if (activeBoss.hp <= 0) {
@@ -676,12 +670,12 @@ function hitBoss(x, y) {
     activeBoss = null;
     bossHud.classList.add('hidden');
 
-    const bossBounty = Math.max(100, Math.floor(getEffectiveCPS() * 30 + 200));
+    const bossBounty = Math.max(150, Math.floor(getEffectiveCPS() * 30 + 250));
     gameState.score += bossBounty;
     gameState.totalEarned += bossBounty;
     gameState.asteroidsDestroyed += 1;
 
-    showToast(`☠️ COSMIC BOSS DEFEATED! Earned +${bossBounty} Bounty!`);
+    showToast(`🚨 ROBBER GETAWAY VAN NEUTRALIZED! Seized +$${bossBounty} Bounty!`);
     gameState.achievements.asteroidHunter = true;
     checkAchievements();
   }
@@ -694,10 +688,9 @@ function triggerShot(x = 200, y = 140) {
   gameState.score += addedPoints;
   gameState.totalEarned += addedPoints;
   gameState.totalClicks += 1;
-  targetScale = 0.85;
 
   recentClicksTimestamps.push(Date.now());
-  spawnFloatingText(`+${addedPoints}`, x, y, frenzyMultiplier > 1 || comboStreak > 5);
+  spawnFloatingText(`+$${addedPoints}`, x, y, frenzyMultiplier > 1 || comboStreak > 5);
 
   checkAchievements();
   updateUI();
@@ -710,7 +703,7 @@ function updateShooterHUD() {
   heatText.textContent = `${Math.floor(weaponHeat)}%`;
   heatBarFill.style.width = `${weaponHeat}%`;
 
-  comboDisplay.textContent = `COMBO ${comboStreak}x`;
+  comboDisplay.textContent = `STREAK ${comboStreak}x`;
 
   if (activeBoss) {
     const bossPct = Math.max(0, (activeBoss.hp / activeBoss.maxHp) * 100);
@@ -729,37 +722,38 @@ function spawnFloatingText(text, x, y, isGolden = false) {
   setTimeout(() => el.remove(), 800);
 }
 
-function update3DSatellites() {
+function update3DCruisers() {
   if (!scene) return;
-  orbitingSatellites.forEach(sat => scene.remove(sat.mesh));
-  orbitingSatellites = [];
+  orbitingCruisers.forEach(c => scene.remove(c.mesh));
+  orbitingCruisers = [];
 
-  const totalBuildings = gameState.upgrades.cursor.count +
-                         gameState.upgrades.grandma.count +
-                         gameState.upgrades.factory.count;
+  const totalUnits = gameState.upgrades.cursor.count +
+                     gameState.upgrades.grandma.count +
+                     gameState.upgrades.factory.count;
 
-  const countToSpawn = Math.min(totalBuildings, 25);
+  const countToSpawn = Math.min(totalUnits, 20);
   for (let i = 0; i < countToSpawn; i++) {
-    const isBig = i >= 10;
-    const geom = isBig ? new THREE.TetrahedronGeometry(0.2) : new THREE.OctahedronGeometry(0.12);
+    const isBig = i >= 8;
+    const geom = isBig ? new THREE.BoxGeometry(0.35, 0.2, 0.6) : new THREE.BoxGeometry(0.25, 0.15, 0.45);
     const mat = new THREE.MeshStandardMaterial({
-      color: isBig ? 0x818cf8 : 0x38bdf8,
-      metalness: 0.9,
+      color: isBig ? 0x0284c7 : 0xef4444,
+      metalness: 0.8,
       roughness: 0.2,
-      emissive: isBig ? 0x4f46e5 : 0x0284c7,
+      emissive: isBig ? 0x0369a1 : 0x991b1b,
       emissiveIntensity: 0.5
     });
 
     const mesh = new THREE.Mesh(geom, mat);
-    const radius = 2.2 + (i % 3) * 0.4;
+    const radius = 2.2 + (i % 3) * 0.5;
     const angle = (i / countToSpawn) * Math.PI * 2;
-    const speed = 0.01 + (i % 5) * 0.005;
+    const speed = 0.012 + (i % 4) * 0.004;
 
     mesh.position.x = Math.cos(angle) * radius;
     mesh.position.z = Math.sin(angle) * radius;
+    mesh.position.y = -0.9;
 
     scene.add(mesh);
-    orbitingSatellites.push({ mesh, radius, angle, speed });
+    orbitingCruisers.push({ mesh, radius, angle, speed });
   }
 }
 
@@ -787,11 +781,6 @@ function setupEventListeners() {
     });
   });
 
-  skinSelect.addEventListener('change', (e) => {
-    gameState.skin = e.target.value;
-    createMainCrystalMesh();
-  });
-
   themeSelect.addEventListener('change', (e) => {
     gameState.theme = e.target.value;
     applyTheme(e.target.value);
@@ -806,7 +795,7 @@ function setupEventListeners() {
       gameState.score -= 1000;
       gameState.tech.autobuyer = true;
       playSound('buy');
-      showToast('🤖 Auto-Buyer Drone Unlocked!');
+      showToast('🤖 Auto-Bust Dispatcher Unlocked!');
       updateUI();
     }
   });
@@ -816,7 +805,7 @@ function setupEventListeners() {
       gameState.score -= 2500;
       gameState.tech.synergy1 = true;
       playSound('buy');
-      showToast('⚡ Drone Overclocking Unlocked!');
+      showToast('🚨 Cruiser Siren Overcharge Unlocked!');
       updateUI();
     }
   });
@@ -826,16 +815,16 @@ function setupEventListeners() {
       gameState.score -= 10000;
       gameState.tech.synergy2 = true;
       playSound('buy');
-      showToast('🔮 Prism Resonance Unlocked!');
+      showToast('🎯 SWAT Sniper Radar Unlocked!');
       updateUI();
     }
   });
 
   ascendBtn.addEventListener('click', () => {
     if (gameState.score >= 50000) {
-      const earnedShards = Math.floor(Math.pow(gameState.score / 50000, 0.5) * 5);
-      if (confirm(`Ascend now for ${earnedShards} Cosmic Shards? This resets your points and building upgrades, but grants a permanent +${earnedShards * 10}% income boost!`)) {
-        performAscension(earnedShards);
+      const earnedStars = Math.floor(Math.pow(gameState.score / 50000, 0.5) * 5);
+      if (confirm(`Promote to Police Commissioner now for ${earnedStars} Merit Stars? This resets cash and precinct units, but grants a permanent +${earnedStars * 10}% boost!`)) {
+        performAscension(earnedStars);
       }
     }
   });
@@ -847,11 +836,11 @@ function setupEventListeners() {
 
   saveBtn.addEventListener('click', () => {
     saveGame();
-    showToast('💾 Game Saved!');
+    showToast('💾 Progress Saved!');
   });
 
   resetBtn.addEventListener('click', () => {
-    if (confirm('Are you sure you want to reset your 3D game progress?')) {
+    if (confirm('Are you sure you want to clear your police records and reset progress?')) {
       resetGame();
     }
   });
@@ -876,8 +865,8 @@ function runAutobuyer() {
   }
 }
 
-function performAscension(earnedShards) {
-  gameState.shards += earnedShards;
+function performAscension(earnedStars) {
+  gameState.shards += earnedStars;
   gameState.ascensionCount += 1;
   gameState.score = 0;
   gameState.clickPower = 1;
@@ -892,11 +881,11 @@ function performAscension(earnedShards) {
 
   gameState.achievements.firstAscension = true;
   playSound('buy');
-  showToast(`🌌 ASCENSION COMPLETE! Earned ${earnedShards} Cosmic Shards!`);
+  showToast(`⭐ PROMOTION COMPLETE! Earned ${earnedStars} Merit Stars!`);
 
   checkAchievements();
   updateUI();
-  update3DSatellites();
+  update3DCruisers();
 }
 
 function buyUpgrade(type) {
@@ -918,22 +907,21 @@ function buyUpgrade(type) {
     upgrade.cost = Math.floor(upgrade.cost * 1.15);
     checkAchievements();
     updateUI();
-    update3DSatellites();
+    update3DCruisers();
   }
 }
 
 function updateUI() {
-  scoreDisplay.textContent = Math.floor(gameState.score);
-  cpsDisplay.textContent = `${Math.floor(getEffectiveCPS())} per sec`;
-  clickPowerDisplay.textContent = `+${Math.floor(getEffectiveClickPower())} per shot`;
+  scoreDisplay.textContent = `$${Math.floor(gameState.score)}`;
+  cpsDisplay.textContent = `$${Math.floor(getEffectiveCPS())} per sec`;
+  clickPowerDisplay.textContent = `+$${Math.floor(getEffectiveClickPower())} per bust`;
 
-  shardsDisplay.textContent = `🌌 ${gameState.shards} Shards (+${gameState.shards * 10}%)`;
+  shardsDisplay.textContent = `⭐ ${gameState.shards} Merit Stars (+${gameState.shards * 10}%)`;
 
-  skinSelect.value = gameState.skin;
   themeSelect.value = gameState.theme;
 
   statTotalClicksDetailed.textContent = gameState.totalClicks;
-  statTotalEarnedDetailed.textContent = Math.floor(gameState.totalEarned);
+  statTotalEarnedDetailed.textContent = `$${Math.floor(gameState.totalEarned)}`;
 
   const now = Date.now();
   recentClicksTimestamps = recentClicksTimestamps.filter(t => now - t < 60000);
@@ -960,8 +948,8 @@ function updateUI() {
   synergy2Status.textContent = gameState.tech.synergy2 ? 'Unlocked' : 'Locked';
   buySynergy2Btn.disabled = gameState.tech.synergy2 || gameState.score < 10000;
 
-  const pendingShards = gameState.score >= 50000 ? Math.floor(Math.pow(gameState.score / 50000, 0.5) * 5) : 0;
-  ascensionShardsPending.textContent = pendingShards;
+  const pendingStars = gameState.score >= 50000 ? Math.floor(Math.pow(gameState.score / 50000, 0.5) * 5) : 0;
+  ascensionShardsPending.textContent = pendingStars;
   ascensionBoostCurrent.textContent = `+${gameState.shards * 10}%`;
   ascendBtn.disabled = gameState.score < 50000;
 
@@ -1010,7 +998,7 @@ function unlockAchievement(id) {
   const def = achievementsDef.find(a => a.id === id);
   if (def) {
     playSound('buy');
-    showToast(`🏆 Combat Badge Unlocked: ${def.title}!`);
+    showToast(`🏆 Badge Commendation Unlocked: ${def.title}!`);
   }
   renderAchievementsUI();
 }
@@ -1026,11 +1014,11 @@ function showToast(message) {
 
 function saveGame() {
   gameState.lastSaveTimestamp = Date.now();
-  localStorage.setItem('3d_counter_clicker_save', JSON.stringify(gameState));
+  localStorage.setItem('3d_city_shooter_save', JSON.stringify(gameState));
 }
 
 function loadGame() {
-  const saved = localStorage.getItem('3d_counter_clicker_save');
+  const saved = localStorage.getItem('3d_city_shooter_save');
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
@@ -1060,7 +1048,7 @@ function checkOfflineEarnings() {
         gameState.score += offlineEarned;
         gameState.totalEarned += offlineEarned;
 
-        modalAmount.textContent = `+${offlineEarned}`;
+        modalAmount.textContent = `+$${offlineEarned}`;
         modalOverlay.classList.remove('hidden');
       }
     }
@@ -1068,7 +1056,7 @@ function checkOfflineEarnings() {
 }
 
 function resetGame() {
-  localStorage.removeItem('3d_counter_clicker_save');
+  localStorage.removeItem('3d_city_shooter_save');
   gameState = {
     score: 0,
     clickPower: 1,
@@ -1113,12 +1101,11 @@ function resetGame() {
   comboStreak = 0;
   frenzyMultiplier = 1;
   frenzyBanner.classList.add('hidden');
-  createMainCrystalMesh();
   applyTheme(gameState.theme);
   switchWeapon('laser');
   renderAchievementsUI();
   updateUI();
-  update3DSatellites();
+  update3DCruisers();
 }
 
 // Start 3D Game

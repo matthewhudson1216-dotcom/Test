@@ -3,240 +3,231 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>3D Space Shooter & Counter Game</title>
+  <title>3D City Shooter: Cops vs Robbers</title>
   <link rel="stylesheet" href="style.css">
   <!-- Three.js CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
-  <div class="game-container shooter-theme">
+  <div class="game-container cop-theme">
     <header>
-      <h1>3D Space Defense Shooter</h1>
+      <h1>🚨 City Defense: Cops vs Robbers</h1>
       <div class="header-controls">
-        <span id="combo-display" class="combo-badge">COMBO 0x</span>
-        <span id="shards-display" class="shards-badge">🌌 0 Shards (+0%)</span>
+        <span id="combo-display" class="combo-badge">STREAK 0x</span>
+        <span id="shards-display" class="shards-badge">⭐ 0 Merit Stars (+0%)</span>
         <button id="sfx-toggle" class="icon-btn" title="Toggle Sound Effects">🔊 SFX On</button>
       </div>
     </header>
 
     <main class="game-layout">
-      <!-- 3D Shooter Viewport & HUD -->
+      <!-- 3D City Viewport & Police HUD -->
       <section class="clicker-section shooter-section">
         <div class="score-board">
-          <div id="score" class="score-display">0</div>
+          <div id="score" class="score-display">$0</div>
           <div class="sub-stats">
-            <span id="cps-display">0 per sec</span> •
-            <span id="click-power-display">+1 per shot</span>
+            <span id="cps-display">$0 per sec</span> •
+            <span id="click-power-display">+$1 per bust</span>
           </div>
-          <div id="frenzy-banner" class="frenzy-banner hidden">✨ FRENZY 7X MULTIPLIER! ✨</div>
+          <div id="frenzy-banner" class="frenzy-banner hidden">🚨 POLICE SIREN 7X BOUNTY FRENZY! 🚨</div>
 
-          <!-- Station Health & Weapon Heat HUD Bars -->
+          <!-- Precinct Health & Weapon Heat HUD Bars -->
           <div class="hud-bars-container">
             <div class="hud-bar-group">
-              <div class="hud-label">STATION SHIELD: <span id="health-text">100/100</span></div>
+              <div class="hud-label">PRECINCT SHIELD: <span id="health-text">100/100</span></div>
               <div class="hud-bar-bg">
                 <div id="health-bar-fill" class="hud-bar-fill health-fill" style="width: 100%;"></div>
               </div>
             </div>
             <div class="hud-bar-group">
-              <div class="hud-label">WEAPON HEAT: <span id="heat-text">0%</span></div>
+              <div class="hud-label">WEAPON TEMP: <span id="heat-text">0%</span></div>
               <div class="hud-bar-bg">
                 <div id="heat-bar-fill" class="hud-bar-fill heat-fill" style="width: 0%;"></div>
               </div>
             </div>
           </div>
 
-          <!-- Boss Health Bar -->
+          <!-- Robber Boss / Getaway Van Bar -->
           <div id="boss-hud" class="boss-hud hidden">
-            <div class="boss-title">⚠️ COSMIC BOSS DETECTED ⚠️</div>
+            <div class="boss-title">⚠️ ROBBER BOSS GETAWAY VAN DETECTED ⚠️</div>
             <div class="hud-bar-bg boss-bar-bg">
               <div id="boss-bar-fill" class="hud-bar-fill boss-fill" style="width: 100%;"></div>
             </div>
           </div>
         </div>
 
-        <!-- 3D Canvas Viewport with Crosshair -->
+        <!-- 3D City Viewport with Target Crosshair -->
         <div id="canvas-container" class="canvas-container shooter-canvas">
-          <div class="canvas-hint">Aim & Click to Fire Plasma Lasers!</div>
+          <div class="canvas-hint">Aim & Click to Neutralize Robbers in the City!</div>
           <div id="floating-text-container" class="floating-text-container"></div>
           <div class="crosshair"></div>
         </div>
 
-        <button id="click-btn" class="main-click-btn fire-btn">⚡ FIRE WEAPONS</button>
+        <button id="click-btn" class="main-click-btn fire-btn">🔫 OPEN FIRE</button>
 
-        <!-- Weapon Armory Selector -->
+        <!-- Police Armory Selector -->
         <div class="armory-box">
           <div class="armory-label">ARMORY:</div>
           <div class="weapon-selector">
-            <button id="wpn-laser" class="weapon-btn active">Pulse Laser</button>
-            <button id="wpn-plasma" class="weapon-btn">Plasma Cannon</button>
-            <button id="wpn-missiles" class="weapon-btn">Homing Missiles</button>
+            <button id="wpn-laser" class="weapon-btn active">Service Pistol</button>
+            <button id="wpn-plasma" class="weapon-btn">Tactical Shotgun</button>
+            <button id="wpn-missiles" class="weapon-btn">Assault Rifle</button>
           </div>
         </div>
 
-        <!-- Skins & Themes Customizer -->
+        <!-- City District Selector -->
         <div class="customizer-box">
           <div class="customizer-group">
-            <label>Crystal Core:</label>
-            <select id="skin-select">
-              <option value="default">Default Blue Icosahedron</option>
-              <option value="ruby">Ruby Octahedron</option>
-              <option value="emerald">Emerald Prism</option>
-              <option value="rainbow">Chroma Rainbow Core</option>
-            </select>
-          </div>
-          <div class="customizer-group">
-            <label>Sector:</label>
+            <label>City Patrol Sector:</label>
             <select id="theme-select">
-              <option value="cyan">Deep Space Cyan</option>
-              <option value="nebula">Nebula Violet</option>
-              <option value="cyberpunk">Cyberpunk Neon</option>
-              <option value="gold">Solar Gold</option>
+              <option value="cyan">Downtown Night</option>
+              <option value="nebula">Sunset Harbor</option>
+              <option value="cyberpunk">Cyber Neon Plaza</option>
+              <option value="gold">Financial District</option>
             </select>
           </div>
         </div>
       </section>
 
-      <!-- Shop & Upgrades Section -->
+      <!-- Police Shop & Precinct Upgrades Section -->
       <section class="shop-section">
         <!-- Tabs Navigation -->
         <div class="shop-tabs">
-          <button id="tab-upgrades" class="tab-btn active">Turrets</button>
-          <button id="tab-tech" class="tab-btn">Tech Tree</button>
-          <button id="tab-ascension" class="tab-btn prestige-tab">Ascension</button>
-          <button id="tab-stats" class="tab-btn">Stats</button>
+          <button id="tab-upgrades" class="tab-btn active">Units & Upgrades</button>
+          <button id="tab-tech" class="tab-btn">Precinct Tech</button>
+          <button id="tab-ascension" class="tab-btn prestige-tab">Promotion</button>
+          <button id="tab-stats" class="tab-btn">Police Records</button>
         </div>
 
-        <!-- Tab 1: Upgrades & Defense Turrets -->
+        <!-- Tab 1: Upgrades & Police Units -->
         <div id="panel-upgrades" class="tab-panel active">
-          <h2>Defensive Turrets & Upgrades</h2>
+          <h2>Precinct Units & Upgrades</h2>
           <div class="upgrades-list">
             <div class="upgrade-card">
               <div class="upgrade-info">
-                <h3>Laser Power Multiplier</h3>
-                <p>+1 shot damage</p>
+                <h3>Firepower Training</h3>
+                <p>+$1 shot bounty</p>
                 <div class="upgrade-stats">Owned: <span id="count-multiplier">0</span></div>
               </div>
               <button id="buy-multiplier" class="buy-btn">
-                Buy (<span id="cost-multiplier">10</span>)
+                Buy ($<span id="cost-multiplier">10</span>)
               </button>
             </div>
 
             <div class="upgrade-card">
               <div class="upgrade-info">
-                <h3>Auto Turret Drone</h3>
-                <p>+1 CPS (Spawns 3D Defense Drone)</p>
+                <h3>Patrol Cruiser Drone</h3>
+                <p>+$1 CPS (Spawns Patrol Cruiser)</p>
                 <div class="upgrade-stats">Owned: <span id="count-cursor">0</span></div>
               </div>
               <button id="buy-cursor" class="buy-btn">
-                Buy (<span id="cost-cursor">15</span>)
+                Buy ($<span id="cost-cursor">15</span>)
               </button>
             </div>
 
             <div class="upgrade-card">
               <div class="upgrade-info">
-                <h3>Plasma Cannon Battery</h3>
-                <p>+5 CPS (Spawns 3D Prism Battery)</p>
+                <h3>SWAT Tactical Battery</h3>
+                <p>+$5 CPS (Spawns SWAT Sniper Post)</p>
                 <div class="upgrade-stats">Owned: <span id="count-grandma">0</span></div>
               </div>
               <button id="buy-grandma" class="buy-btn">
-                Buy (<span id="cost-grandma">100</span>)
+                Buy ($<span id="cost-grandma">100</span>)
               </button>
             </div>
 
             <div class="upgrade-card">
               <div class="upgrade-info">
-                <h3>Station Core Matrix</h3>
-                <p>+25 CPS (Spawns 3D Defense Core)</p>
+                <h3>Police Headquarters Matrix</h3>
+                <p>+$25 CPS (Spawns HQ Defense Network)</p>
                 <div class="upgrade-stats">Owned: <span id="count-factory">0</span></div>
               </div>
               <button id="buy-factory" class="buy-btn">
-                Buy (<span id="cost-factory">500</span>)
+                Buy ($<span id="cost-factory">500</span>)
               </button>
             </div>
           </div>
 
-          <!-- Achievements Section -->
+          <!-- Police Badges Section -->
           <div class="achievements-section">
-            <h2>Combat Badges (<span id="achievements-count">0/8</span>)</h2>
+            <h2>Commendation Badges (<span id="achievements-count">0/8</span>)</h2>
             <div id="achievements-list" class="achievements-list"></div>
           </div>
         </div>
 
-        <!-- Tab 2: Tech Tree -->
+        <!-- Tab 2: Precinct Tech -->
         <div id="panel-tech" class="tab-panel hidden">
-          <h2>Automation & Synergies</h2>
+          <h2>Department Automation</h2>
           <div class="upgrades-list">
             <div class="upgrade-card">
               <div class="upgrade-info">
-                <h3>Auto-Buyer Drone</h3>
-                <p>Automatically purchases the cheapest turret upgrade</p>
+                <h3>Auto-Bust Dispatcher</h3>
+                <p>Automatically purchases the cheapest unit upgrade</p>
                 <div class="upgrade-stats">Status: <span id="autobuyer-status">Locked</span></div>
               </div>
               <button id="buy-autobuyer" class="buy-btn">
-                Buy (<span id="cost-autobuyer">1000</span>)
+                Buy ($<span id="cost-autobuyer">1000</span>)
               </button>
             </div>
 
             <div class="upgrade-card">
               <div class="upgrade-info">
-                <h3>Drone Overclocking</h3>
-                <p>Auto Turrets produce +50% CPS per Battery owned</p>
+                <h3>Cruiser Siren Overcharge</h3>
+                <p>Patrol Cruisers produce +50% CPS per SWAT Sniper Post owned</p>
                 <div class="upgrade-stats">Status: <span id="synergy1-status">Locked</span></div>
               </div>
               <button id="buy-synergy1" class="buy-btn">
-                Buy (<span id="cost-synergy1">2500</span>)
+                Buy ($<span id="cost-synergy1">2500</span>)
               </button>
             </div>
 
             <div class="upgrade-card">
               <div class="upgrade-info">
-                <h3>Prism Resonance</h3>
-                <p>Batteries boost Laser Power by +5% of their total CPS</p>
+                <h3>SWAT Sniper Radar</h3>
+                <p>SWAT Posts boost Pistol Damage by +5% of total CPS</p>
                 <div class="upgrade-stats">Status: <span id="synergy2-status">Locked</span></div>
               </div>
               <button id="buy-synergy2" class="buy-btn">
-                Buy (<span id="cost-synergy2">10000</span>)
+                Buy ($<span id="cost-synergy2">10000</span>)
               </button>
             </div>
           </div>
         </div>
 
-        <!-- Tab 3: Ascension (Prestige) -->
+        <!-- Tab 3: Promotion (Prestige) -->
         <div id="panel-ascension" class="tab-panel hidden">
-          <h2>🌌 Cosmic Ascension</h2>
+          <h2>⭐ Police Commissioner Promotion</h2>
           <div class="ascension-box">
-            <p>Ascending resets points and turrets for <strong>Cosmic Shards</strong>.</p>
-            <p>Each Cosmic Shard grants a permanent <strong>+10% boost</strong> to all weapon power and CPS across resets!</p>
+            <p>Promoting resets cash and precinct units for <strong>Merit Stars</strong>.</p>
+            <p>Each Merit Star grants a permanent <strong>+10% boost</strong> to all shot damage and CPS across resets!</p>
 
             <div class="ascension-stats">
-              <div>Earnable Shards now: <span id="ascension-shards-pending" class="highlight-gold">0</span></div>
+              <div>Earnable Stars now: <span id="ascension-shards-pending" class="highlight-gold">0</span></div>
               <div>Current Boost: <span id="ascension-boost-current">0%</span></div>
             </div>
 
             <button id="ascend-btn" class="main-click-btn gold-btn" disabled>
-              ASCEND (Requires 50,000 Points)
+              PROMOTE TO COMMISSIONER (Requires $50,000)
             </button>
           </div>
         </div>
 
-        <!-- Tab 4: Extended Stats Drawer -->
+        <!-- Tab 4: Police Records -->
         <div id="panel-stats" class="tab-panel hidden">
-          <h2>📊 Analytics & Statistics</h2>
+          <h2>📊 Precinct Activity Log</h2>
           <div class="detailed-stats-grid">
-            <div class="stat-card"><span>Total Shots Fired:</span> <strong id="stat-clicks-detailed">0</strong></div>
-            <div class="stat-card"><span>Total Bounty Earned:</span> <strong id="stat-earned-detailed">0</strong></div>
-            <div class="stat-card"><span>Shots / Min (SPM):</span> <strong id="stat-cpm">0</strong></div>
-            <div class="stat-card"><span>Enemies Destroyed:</span> <strong id="stat-golden-count">0</strong></div>
-            <div class="stat-card"><span>Bosses Defeated:</span> <strong id="stat-asteroids-count">0</strong></div>
-            <div class="stat-card"><span>Ascensions Completed:</span> <strong id="stat-ascension-count">0</strong></div>
+            <div class="stat-card"><span>Shots Fired:</span> <strong id="stat-clicks-detailed">0</strong></div>
+            <div class="stat-card"><span>Total Seized Bounty:</span> <strong id="stat-earned-detailed">$0</strong></div>
+            <div class="stat-card"><span>Rounds / Min (RPM):</span> <strong id="stat-cpm">0</strong></div>
+            <div class="stat-card"><span>Robbers Arrested:</span> <strong id="stat-golden-count">0</strong></div>
+            <div class="stat-card"><span>Boss Vans Neutralized:</span> <strong id="stat-asteroids-count">0</strong></div>
+            <div class="stat-card"><span>Department Promotions:</span> <strong id="stat-ascension-count">0</strong></div>
           </div>
         </div>
 
         <div class="controls-section">
           <div class="control-buttons">
-            <button id="save-btn" class="ctrl-btn">Save Game</button>
-            <button id="reset-btn" class="ctrl-btn danger">Reset Progress</button>
+            <button id="save-btn" class="ctrl-btn">Save Progress</button>
+            <button id="reset-btn" class="ctrl-btn danger">Clear Records</button>
           </div>
         </div>
       </section>
@@ -249,10 +240,10 @@
   <!-- Offline Earnings Modal -->
   <div id="modal-overlay" class="modal-overlay hidden">
     <div class="modal-card">
-      <h2>Welcome Back Commander! 🚀</h2>
-      <p id="modal-desc">While you were away, your station turrets defended the sector!</p>
-      <div id="modal-amount" class="modal-amount">+0</div>
-      <button id="modal-claim-btn" class="main-click-btn">Claim Bounty</button>
+      <h2>Welcome Back Officer! 🚔</h2>
+      <p id="modal-desc">While you were off duty, city patrol cruisers seized robber bounties!</p>
+      <div id="modal-amount" class="modal-amount">+$0</div>
+      <button id="modal-claim-btn" class="main-click-btn">Collect Seized Funds</button>
     </div>
   </div>
 
