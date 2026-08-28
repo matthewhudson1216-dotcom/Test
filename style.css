@@ -17,8 +17,8 @@ body {
 }
 
 .game-container {
-  max-width: 1000px;
-  width: 100%;
+  max-width: 1400px;
+  width: 96vw;
   background: rgba(15, 23, 42, 0.95);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(2, 132, 199, 0.3);
@@ -182,7 +182,7 @@ header h1 {
 /* 3D Canvas Viewport & Controls Hint */
 .canvas-container {
   width: 100%;
-  height: 380px;
+  height: 550px;
   position: relative;
   cursor: crosshair;
   margin-bottom: 0.75rem;
@@ -474,6 +474,73 @@ header h1 {
   justify-content: flex-end;
   border-top: 1px solid #334155;
   padding-top: 0.85rem;
+}
+
+/* Pause & Exit Modals */
+.pause-card, .exit-card {
+  background: #0f172a;
+  border: 1px solid #0284c7;
+  border-radius: 16px;
+  padding: 2rem;
+  max-width: 500px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.95);
+}
+
+.pause-card h2, .exit-card h2 {
+  font-size: 1.6rem;
+  color: #38bdf8;
+  margin-bottom: 0.75rem;
+}
+
+.pause-subtitle, .exit-subtitle {
+  font-size: 0.9rem;
+  color: #94a3b8;
+  margin-bottom: 1.5rem;
+}
+
+.pause-btn-group, .exit-btn-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.pause-btn {
+  background: #1e293b;
+  border: 1px solid #0284c7;
+  color: #f8fafc;
+  padding: 0.85rem;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.pause-btn:hover {
+  background: #0284c7;
+  color: #ffffff;
+}
+
+.pause-btn.resume {
+  background: linear-gradient(135deg, #10b981, #059669);
+  border: none;
+  color: #ffffff;
+}
+
+.pause-btn.resume:hover {
+  background: linear-gradient(135deg, #34d399, #047857);
+}
+
+.pause-btn.danger {
+  background: linear-gradient(135deg, #b91c1c, #991b1b);
+  border: none;
+  color: #ffffff;
+}
+
+.pause-btn.danger:hover {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
 }
 
 /* Toast Notification */

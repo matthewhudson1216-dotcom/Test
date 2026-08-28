@@ -28,10 +28,16 @@ const weaponsDef = {
   rifle: { name: 'Assault Rifle', damage: 35, speed: 0.6, color: 0xfbbf24, reloadTime: 1500 }
 };
 
-// Player 3D Position & WASD Movement State
+// Player 3D Position & Camera Look State
 let playerPos = { x: 0, y: -0.9, z: 4.2 };
+let cameraRotation = { yaw: 0, pitch: 0 }; // Yaw (y-axis), Pitch (x-axis)
+let isPointerLocked = false;
+let isPaused = false;
+let isGameExited = false;
+
 let keysPressed = { KeyW: false, KeyA: false, KeyS: false, KeyD: false };
 const moveSpeed = 0.08;
+const mouseSensitivity = 0.002;
 
 // Web Audio API Sound Synthesizer
 let audioCtx = null;
@@ -127,11 +133,19 @@ const ammoReserve = document.getElementById('ammo-reserve');
 const canvasContainer = document.getElementById('canvas-container');
 const floatingContainer = document.getElementById('floating-text-container');
 
+const pauseHeaderBtn = document.getElementById('pause-btn');
 const openBuyMenuBtn = document.getElementById('open-buy-menu-btn');
 const startRoundBtn = document.getElementById('start-round-btn');
 const buyMenuModal = document.getElementById('buy-menu-modal');
 const closeBuyMenuBtn = document.getElementById('close-buy-menu-btn');
 const buyMenuCash = document.getElementById('buy-menu-cash');
+
+// Pause & Exit Modal Elements
+const pauseModal = document.getElementById('pause-modal');
+const resumeGameBtn = document.getElementById('resume-game-btn');
+const exitGameBtn = document.getElementById('exit-game-btn');
+const exitScreen = document.getElementById('exit-screen');
+const restartGameBtn = document.getElementById('restart-game-btn');
 
 // Buy Items Buttons
 const buyWpnPistolBtn = document.getElementById('buy-wpn-pistol');
@@ -204,8 +218,14 @@ function init3D() {
 
 function updateCameraTransform() {
   if (!camera) return;
-  camera.position.set(playerPos.x, playerPos.y + 1.2, playerPos.z + 1.8);
-  camera.lookAt(playerPos.x, playerPos.y + 0.2, playerPos.z - 4);
+  // Position camera slightly above player mesh
+  camera.position.set(playerPos.x, playerPos.y + 1.2, playerPos.z + 0.5);
+
+  // Calculate look direction from yaw and pitch angles
+  const euler = new THREE.Euler(cameraRotation.pitch, cameraRotation.yaw, 0, 'YXZ');
+  const forward = new THREE.Vector3(0, 0, -1).applyEuler(euler);
+
+  camera.lookAt(camera.position.clone().add(forward));
 }
 
 function createCopPlayerMesh() {
@@ -293,28 +313,27 @@ function spawnRobberEnemy() {
 function animate() {
   requestAnimationFrame(animate);
 
-  // Handle WASD Keyboard Movement
-  let moved = false;
-  if (keysPressed.KeyW || keysPressed.Keyw) {
-    playerPos.z = Math.max(-2.0, playerPos.z - moveSpeed);
-    moved = true;
-  }
-  if (keysPressed.KeyS || keysPressed.Keys) {
-    playerPos.z = Math.min(5.5, playerPos.z + moveSpeed);
-    moved = true;
-  }
-  if (keysPressed.KeyA || keysPressed.Keya) {
-    playerPos.x = Math.max(-6.0, playerPos.x - moveSpeed);
-    moved = true;
-  }
-  if (keysPressed.KeyD || keysPressed.Keyd) {
-    playerPos.x = Math.min(6.0, playerPos.x + moveSpeed);
-    moved = true;
-  }
+  // Handle WASD Keyboard Movement (Relative to Camera Yaw Direction)
+  if (!isPaused && !isGameExited) {
+    let moveX = 0;
+    let moveZ = 0;
 
-  if (moved) {
-    copPlayerMesh.position.set(playerPos.x, playerPos.y, playerPos.z);
-    updateCameraTransform();
+    if (keysPressed.KeyW || keysPressed.Keyw) moveZ -= 1;
+    if (keysPressed.KeyS || keysPressed.Keys) moveZ += 1;
+    if (keysPressed.KeyA || keysPressed.Keya) moveX -= 1;
+    if (keysPressed.KeyD || keysPressed.Keyd) moveX += 1;
+
+    if (moveX !== 0 || moveZ !== 0) {
+      const moveVec = new THREE.Vector3(moveX, 0, moveZ).normalize().multiplyScalar(moveSpeed);
+      // Rotate movement vector according to camera yaw angle
+      moveVec.applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraRotation.yaw);
+
+      playerPos.x = Math.min(Math.max(-6.0, playerPos.x + moveVec.x), 6.0);
+      playerPos.z = Math.min(Math.max(-2.0, playerPos.z + moveVec.z), 5.5);
+
+      copPlayerMesh.position.set(playerPos.x, playerPos.y, playerPos.z);
+      updateCameraTransform();
+    }
   }
 
   // Police Siren Emergency Lights Flashing
@@ -390,6 +409,13 @@ function damagePlayer(amount) {
 }
 
 function handleShooterClick(event) {
+  if (isPaused || isGameExited) return;
+
+  // Request Pointer Lock for immersive 3D mouse look
+  if (document.pointerLockElement !== canvasContainer && !buyMenuModal.classList.contains('hidden') === false) {
+    canvasContainer.requestPointerLock();
+  }
+
   if (!gameState.isRoundActive) {
     showToast('⚠️ Click "START NEXT ROUND" or open Buy Menu to prepare!');
     return;
@@ -410,14 +436,15 @@ function handleShooterClick(event) {
 
   currentAmmo.clip -= 1;
 
-  const rect = renderer.domElement.getBoundingClientRect();
-  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-
   const wpnDef = weaponsDef[currentWpnKey];
-  raycaster.setFromCamera(mouse, camera);
+  // Raycast down center of camera viewport (crosshair position)
+  raycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
 
-  fireBulletTracer(event.clientX - rect.left, event.clientY - rect.top, wpnDef.color);
+  const rect = renderer.domElement.getBoundingClientRect();
+  const screenCenterX = rect.width / 2;
+  const screenCenterY = rect.height / 2;
+
+  fireBulletTracer(screenCenterX, screenCenterY, wpnDef.color);
 
   // Check Robber Enemy Raycast Hits
   for (let i = activeEnemies.length - 1; i >= 0; i--) {
@@ -425,7 +452,7 @@ function handleShooterClick(event) {
     const intersects = raycaster.intersectObject(enemy.mesh);
     if (intersects.length > 0) {
       enemy.hp -= wpnDef.damage;
-      spawnFloatingText(`-${wpnDef.damage}`, event.clientX - rect.left, event.clientY - rect.top, true);
+      spawnFloatingText(`-${wpnDef.damage}`, screenCenterX, screenCenterY, true);
       playSound('hit');
 
       if (enemy.hp <= 0) {
@@ -433,7 +460,7 @@ function handleShooterClick(event) {
         activeEnemies.splice(i, 1);
         const reward = 100 + gameState.round * 20;
         gameState.cash += reward;
-        spawnFloatingText(`+$${reward}`, event.clientX - rect.left, event.clientY - rect.top, false);
+        spawnFloatingText(`+$${reward}`, screenCenterX, screenCenterY, false);
         checkRoundStatus();
       }
       break;
@@ -519,15 +546,106 @@ function checkRoundStatus() {
 }
 
 function openBuyMenu() {
+  if (document.exitPointerLock) document.exitPointerLock();
   buyMenuModal.classList.remove('hidden');
   updateBuyMenuUI();
+}
+
+function togglePauseMenu() {
+  if (isPaused) {
+    resumeGame();
+  } else {
+    pauseGame();
+  }
+}
+
+function pauseGame() {
+  isPaused = true;
+  if (document.exitPointerLock) document.exitPointerLock();
+  pauseModal.classList.remove('hidden');
+}
+
+function resumeGame() {
+  isPaused = false;
+  pauseModal.classList.add('hidden');
+}
+
+function exitGame() {
+  isPaused = false;
+  isGameExited = true;
+  if (document.exitPointerLock) document.exitPointerLock();
+  pauseModal.classList.add('hidden');
+  buyMenuModal.classList.add('hidden');
+  exitScreen.classList.remove('hidden');
+  gameState.isRoundActive = false;
+}
+
+function restartGame() {
+  isGameExited = false;
+  isPaused = false;
+  exitScreen.classList.add('hidden');
+
+  // Reset Game State
+  gameState = {
+    cash: 800,
+    health: 100,
+    maxHealth: 100,
+    armor: 0,
+    maxArmor: 100,
+    round: 1,
+    isRoundActive: false,
+    sfxMuted: gameState.sfxMuted,
+    inventory: { pistol: true, shotgun: false, rifle: false },
+    equippedWeapon: 'pistol',
+    ammo: {
+      pistol: { clip: 12, maxClip: 12, reserve: Infinity },
+      shotgun: { clip: 6, maxClip: 6, reserve: 24 },
+      rifle: { clip: 30, maxClip: 30, reserve: 90 }
+    }
+  };
+
+  playerPos = { x: 0, y: -0.9, z: 4.2 };
+  cameraRotation = { yaw: 0, pitch: 0 };
+  copPlayerMesh.position.set(playerPos.x, playerPos.y, playerPos.z);
+  updateCameraTransform();
+
+  activeEnemies.forEach(e => scene.remove(e.mesh));
+  activeEnemies = [];
+
+  updateUI();
+  showToast('🚨 Back on Duty! Good luck Officer.');
 }
 
 function setupEventListeners() {
   canvasContainer.addEventListener('pointerdown', handleShooterClick);
 
-  // WASD Keyboard Movement
+  // Pointer Lock & 3D Mouse Look Event Listeners
+  document.addEventListener('pointerlockchange', () => {
+    isPointerLocked = (document.pointerLockElement === canvasContainer);
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (isPointerLocked && !isPaused && !isGameExited) {
+      cameraRotation.yaw -= e.movementX * mouseSensitivity;
+      cameraRotation.pitch -= e.movementY * mouseSensitivity;
+
+      // Clamp pitch rotation (looking up/down) to avoid flip
+      const maxPitch = Math.PI / 2.5;
+      cameraRotation.pitch = Math.max(-maxPitch, Math.min(maxPitch, cameraRotation.pitch));
+
+      updateCameraTransform();
+    }
+  });
+
+  // WASD & Escape Keyboard Listeners
   window.addEventListener('keydown', (e) => {
+    if (e.code === 'Escape') {
+      if (!isGameExited) {
+        togglePauseMenu();
+      }
+      return;
+    }
+
     if (keysPressed.hasOwnProperty(e.code)) {
       keysPressed[e.code] = true;
     }
@@ -541,6 +659,15 @@ function setupEventListeners() {
       keysPressed[e.code] = false;
     }
   });
+
+  // Pause & Exit Modal Button Handlers
+  resumeGameBtn.addEventListener('click', resumeGame);
+  exitGameBtn.addEventListener('click', exitGame);
+  restartGameBtn.addEventListener('click', restartGame);
+
+  if (pauseHeaderBtn) {
+    pauseHeaderBtn.addEventListener('click', togglePauseMenu);
+  }
 
   openBuyMenuBtn.addEventListener('click', openBuyMenu);
   closeBuyMenuBtn.addEventListener('click', () => {

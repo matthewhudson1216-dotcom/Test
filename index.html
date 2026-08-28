@@ -15,6 +15,7 @@
       <div class="header-controls">
         <span id="round-display" class="round-badge">ROUND 1</span>
         <span id="cash-display" class="cash-badge">💵 CASH: $800</span>
+        <button id="pause-btn" class="icon-btn danger-icon-btn" title="Pause / Exit Game">⏸️ Pause [ESC]</button>
         <button id="sfx-toggle" class="icon-btn" title="Toggle Sound Effects">🔊 SFX On</button>
       </div>
     </header>
@@ -49,9 +50,11 @@
         <!-- 3D City Viewport with Target Crosshair -->
         <div id="canvas-container" class="canvas-container shooter-canvas">
           <div class="controls-hint-overlay">
+            <span class="key-badge">MOUSE</span> Look Around &nbsp;•&nbsp;
             <span class="key-badge">W</span><span class="key-badge">A</span><span class="key-badge">S</span><span class="key-badge">D</span> Move Cop &nbsp;•&nbsp;
-            <span class="key-badge">CLICK</span> Aim & Fire &nbsp;•&nbsp;
-            <span class="key-badge">R</span> Reload
+            <span class="key-badge">CLICK</span> Fire &nbsp;•&nbsp;
+            <span class="key-badge">R</span> Reload &nbsp;•&nbsp;
+            <span class="key-badge">ESC</span> Pause / Exit
           </div>
           <div id="floating-text-container" class="floating-text-container"></div>
           <div class="crosshair"></div>
@@ -139,6 +142,29 @@
 
       <div class="buy-menu-footer">
         <button id="close-buy-menu-btn" class="main-click-btn start-round-btn">READY - START ROUND</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Pause Modal Overlay (Triggered by ESC Key) -->
+  <div id="pause-modal" class="modal-overlay hidden">
+    <div class="pause-card">
+      <h2>⏸️ GAME PAUSED</h2>
+      <p class="pause-subtitle">Take a tactical breath Officer. What would you like to do?</p>
+      <div class="pause-btn-group">
+        <button id="resume-game-btn" class="pause-btn resume">▶️ RESUME GAME</button>
+        <button id="exit-game-btn" class="pause-btn danger">🚪 EXIT GAME</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Exit Game Screen Overlay -->
+  <div id="exit-screen" class="modal-overlay hidden">
+    <div class="exit-card">
+      <h2>🚨 SHIFT ENDED / GAME CLOSED</h2>
+      <p class="exit-subtitle">You have successfully signed off from tactical duty.</p>
+      <div class="exit-btn-group">
+        <button id="restart-game-btn" class="pause-btn resume">🔄 RETURN TO DUTY (RESTART)</button>
       </div>
     </div>
   </div>
