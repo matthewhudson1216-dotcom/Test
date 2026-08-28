@@ -24,6 +24,7 @@ let gameState = {
   rank: 'CADET',
   camos: { black: true, urban: true, gold: false },
   equippedCamo: 'black',
+  swatPartnerMode: 'squad',
   ammo: {
     pistol: { clip: 12, maxClip: 12, reserve: Infinity },
     smg: { clip: 30, maxClip: 30, reserve: 120 },
@@ -672,6 +673,15 @@ function updateCameraTransform() {
   }
 }
 
+function updateSwatPartnerVisibility() {
+  if (gameState.swatPartnerMode === 'solo') {
+    if (swatPartnerMesh) swatPartnerMesh.visible = false;
+  } else {
+    if (!swatPartnerMesh) createSwatPartner();
+    if (swatPartnerMesh) swatPartnerMesh.visible = true;
+  }
+}
+
 function createSwatPartner() {
   if (!scene) return;
   if (swatPartnerMesh) scene.remove(swatPartnerMesh);
@@ -706,6 +716,7 @@ function createSwatPartner() {
   swatGroup.add(rifleMesh);
 
   swatGroup.position.set(playerPos.x - 1.5, -0.9, playerPos.z + 1);
+  swatGroup.visible = gameState.swatPartnerMode !== 'solo';
   scene.add(swatGroup);
   swatPartnerMesh = swatGroup;
 }
@@ -1409,30 +1420,62 @@ function animate() {
   updateGamepadInput();
 
   // Update SWAT AI Squadmate
-  if (swatPartnerMesh && gameState.isRoundActive) {
+  if (swatPartnerMesh && gameState.isRoundActive && gameState.swatPartnerMode !== 'solo') {
     swatPartnerTimer++;
 
-    // Follow player position at ~2.0m offset
-    const targetSwatPos = camera.position.clone().add(new THREE.Vector3(-1.8, -0.9 - camera.position.y, 0.8).applyQuaternion(camera.quaternion));
-    targetSwatPos.y = -0.9;
-    swatPartnerMesh.position.lerp(targetSwatPos, 0.06);
-
-    // Target closest enemy and provide covering fire
+    // Target closest enemy in Line-of-Sight
+    const swatEye = swatPartnerMesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
     let closestEnemy = null;
     let closestDist = Infinity;
+
     activeEnemies.forEach(enemy => {
+      const enemyEye = enemy.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
       const d = swatPartnerMesh.position.distanceTo(enemy.mesh.position);
-      if (d < closestDist) {
+      if (d < closestDist && hasLineOfSight(swatEye, enemyEye)) {
         closestDist = d;
         closestEnemy = enemy;
       }
     });
 
+    // Independent Tactical Navigation Movement
+    let swatMoveTarget = null;
+    if (closestEnemy) {
+      const distToEnemy = swatPartnerMesh.position.distanceTo(closestEnemy.mesh.position);
+      if (distToEnemy > 4.5) {
+        swatMoveTarget = closestEnemy.mesh.position.clone();
+      }
+    } else {
+      const patrolX = Math.sin(swatPartnerTimer * 0.02) * 5.0;
+      const patrolZ = -4.0 + Math.cos(swatPartnerTimer * 0.02) * 3.0;
+      swatMoveTarget = new THREE.Vector3(patrolX, -0.9, patrolZ);
+    }
+
+    if (swatMoveTarget) {
+      const swatDir = swatMoveTarget.clone().sub(swatPartnerMesh.position);
+      swatDir.y = 0;
+      if (swatDir.length() > 0.5) {
+        swatDir.normalize();
+        const swatSpeed = 0.04;
+        const nextSwatPos = swatPartnerMesh.position.clone().addScaledVector(swatDir, swatSpeed);
+
+        let blocked = false;
+        barricadeObstacles.forEach(box => {
+          if (nextSwatPos.x >= box.min.x - 0.3 && nextSwatPos.x <= box.max.x + 0.3 &&
+              nextSwatPos.z >= box.min.z - 0.3 && nextSwatPos.z <= box.max.z + 0.3) {
+            blocked = true;
+          }
+        });
+
+        if (!blocked) {
+          swatPartnerMesh.position.copy(nextSwatPos);
+        }
+      }
+    }
+
     if (closestEnemy && closestDist < 18) {
       swatPartnerMesh.lookAt(closestEnemy.mesh.position);
 
       if (swatPartnerTimer % 45 === 0) {
-        const swatEye = swatPartnerMesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
         const enemyEye = closestEnemy.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
 
         fireBulletTracerFromEnemy(swatEye, enemyEye, 0x38bdf8);
@@ -2578,6 +2621,23 @@ function restartGame() {
 }
 
 function setupEventListeners() {
+  const menuPartnerSelect = document.getElementById('menu-partner-select');
+  const settingPartnerSelect = document.getElementById('setting-partner-select');
+
+  function syncPartnerMode(val) {
+    gameState.swatPartnerMode = val;
+    if (menuPartnerSelect) menuPartnerSelect.value = val;
+    if (settingPartnerSelect) settingPartnerSelect.value = val;
+    updateSwatPartnerVisibility();
+    showToast(val === 'solo' ? '👤 SOLO DUTY MODE ACTIVATED' : '👥 AI SQUADMATE PARTNER ACTIVATED');
+  }
+
+  if (menuPartnerSelect) {
+    menuPartnerSelect.addEventListener('change', (e) => syncPartnerMode(e.target.value));
+  }
+  if (settingPartnerSelect) {
+    settingPartnerSelect.addEventListener('change', (e) => syncPartnerMode(e.target.value));
+  }
   if (closeStatsBtn) {
     closeStatsBtn.addEventListener('click', () => {
       if (roundStatsModal) roundStatsModal.classList.add('hidden');

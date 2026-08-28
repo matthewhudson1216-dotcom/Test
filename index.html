@@ -22,6 +22,13 @@
             <h3>📋 MISSION BRIEFING</h3>
             <p>Armed robber syndicates have seized key city sectors! As SWAT Command, neutralize armed threats, rescue civilian hostages, and protect precinct vaults across multiple combat environments.</p>
           </div>
+          <div class="setting-item partner-toggle-item" style="margin-bottom: 1rem;">
+            <label for="menu-partner-select" style="font-weight: 700; color: #38bdf8;">👥 SWAT Partner Mode:</label>
+            <select id="menu-partner-select" class="map-select-dropdown">
+              <option value="squad">👥 AI Squadmate Partner</option>
+              <option value="solo">👤 Solo Duty (No AI)</option>
+            </select>
+          </div>
           <div class="menu-controls-summary">
             <div><span class="key-badge">WASD</span> Move &nbsp;•&nbsp; <span class="key-badge">MOUSE</span> Aim & Shoot</div>
             <div><span class="key-badge">Q/E</span> Lean &nbsp;•&nbsp; <span class="key-badge">SHIFT</span> Sprint &nbsp;•&nbsp; <span class="key-badge">SPACE</span> Jump</div>
@@ -274,6 +281,13 @@
       <!-- Settings Controls -->
       <div class="settings-panel">
         <h3>⚙️ TACTICAL SETTINGS</h3>
+        <div class="setting-item">
+          <label for="setting-partner-select">SWAT Partner Mode:</label>
+          <select id="setting-partner-select" class="map-select-dropdown">
+            <option value="squad">👥 AI Squadmate Partner</option>
+            <option value="solo">👤 Solo Duty (No AI)</option>
+          </select>
+        </div>
         <div class="setting-item">
           <label for="setting-sens">Mouse Sensitivity: <span id="val-sens">1.0</span></label>
           <input type="range" id="setting-sens" min="0.2" max="3.0" step="0.1" value="1.0">
