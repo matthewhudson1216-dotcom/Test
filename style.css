@@ -43,10 +43,39 @@ header h1 {
   letter-spacing: 0.5px;
 }
 
+.rank-badge {
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid #f59e0b;
+  color: #fbbf24;
+  padding: 0.4rem 0.85rem;
+  border-radius: 8px;
+  font-weight: 800;
+  font-size: 0.88rem;
+  letter-spacing: 0.5px;
+}
+
+.camo-btn-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
 .header-controls {
   display: flex;
   align-items: center;
   gap: 0.65rem;
+}
+
+.map-select-dropdown {
+  background: #0f172a;
+  color: #38bdf8;
+  border: 1px solid #0284c7;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 0.82rem;
+  outline: none;
+  cursor: pointer;
 }
 
 .round-badge {
@@ -550,6 +579,24 @@ header h1 {
 }
 
 .modal-overlay.hidden {
+  display: none;
+}
+
+/* Night Vision Goggles Phosphor Green Overlay */
+.nvg-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  background: rgba(16, 185, 129, 0.28);
+  box-shadow: inset 0 0 140px rgba(6, 78, 59, 0.95);
+  z-index: 12;
+  border: 10px solid #022c22;
+}
+
+.nvg-overlay.hidden {
   display: none;
 }
 

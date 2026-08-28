@@ -20,6 +20,10 @@ let gameState = {
   },
   equippedWeapon: 'pistol',
   grenades: 2,
+  xp: 0,
+  rank: 'CADET',
+  camos: { black: true, urban: true, gold: false },
+  equippedCamo: 'black',
   ammo: {
     pistol: { clip: 12, maxClip: 12, reserve: Infinity },
     smg: { clip: 30, maxClip: 30, reserve: 120 },
@@ -70,11 +74,46 @@ let sfxVolume = parseInt(localStorage.getItem('cop_vol') || '100', 10) / 100;
 // Web Audio API Sound Synthesizer
 let audioCtx = null;
 
+let audioListener = null;
+
 function initAudio() {
   if (!audioCtx) {
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     if (AudioContext) {
       audioCtx = new AudioContext();
+    }
+  }
+  if (camera && !audioListener && window.THREE && THREE.AudioListener) {
+    audioListener = new THREE.AudioListener();
+    camera.add(audioListener);
+  }
+}
+
+function playVoiceCallout(calloutType) {
+  if (gameState.sfxMuted || sfxVolume <= 0) return;
+  initAudio();
+
+  const phrases = {
+    swat_reload: 'Cover me, reloading!',
+    swat_cover: 'Moving up, providing cover fire!',
+    swat_down: 'Suspect neutralized!',
+    robber_flank: 'Flank the police officers!',
+    robber_fire: 'Taking heavy fire!'
+  };
+
+  const text = phrases[calloutType] || calloutType;
+  showToast(`🗣️ "${text}"`);
+
+  if ('speechSynthesis' in window) {
+    try {
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.volume = Math.min(1.0, sfxVolume);
+      utterance.pitch = calloutType.startsWith('swat') ? 0.95 : 0.75;
+      utterance.rate = 1.15;
+      window.speechSynthesis.speak(utterance);
+    } catch (e) {
+      console.log('Speech synthesis error:', e);
     }
   }
 }
@@ -286,11 +325,19 @@ let scene, camera, renderer;
 let copPlayerMesh;
 let cityGroup;
 let policeSirenLightRed, policeSirenLightBlue;
+let ambientLight;
+let isNVGOn = false;
+const nvgOverlayEl = document.getElementById('nvg-overlay');
 
 let activeEnemies = [];
 let activeProjectiles = [];
+let activeSmokeClouds = [];
 let barricadeObstacles = [];
+let currentMap = 'street';
 let obstacleMeshes = [];
+let destructibleMeshes = [];
+let swatPartnerMesh = null;
+let swatPartnerTimer = 0;
 let enemiesToSpawnInRound = 0;
 let raycaster, mouse;
 let isReloading = false;
@@ -328,7 +375,7 @@ function init3D() {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   container.appendChild(renderer.domElement);
 
-  const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+  ambientLight = new THREE.AmbientLight(0xffffff, isNVGOn ? 2.8 : 0.5);
   scene.add(ambientLight);
 
   // Flashing Police Emergency Lights
@@ -342,6 +389,7 @@ function init3D() {
 
   createProceduralCity();
   createCopPlayerMesh();
+  createSwatPartner();
   initFPSWeaponGroup();
 
   raycaster = new THREE.Raycaster();
@@ -413,7 +461,14 @@ function updateFPSWeaponMesh() {
   const type = gameState.equippedWeapon;
   const group = new THREE.Group();
 
-  const wpnCamoTex = createWeaponTexture('#1e293b', '#0f172a');
+  let wpnCamoTex;
+  if (gameState.equippedCamo === 'urban') {
+    wpnCamoTex = createWeaponTexture('#64748b', '#334155');
+  } else if (gameState.equippedCamo === 'gold') {
+    wpnCamoTex = createWeaponTexture('#fbbf24', '#d97706');
+  } else {
+    wpnCamoTex = createWeaponTexture('#1e293b', '#0f172a');
+  }
   const gunMetalMat = new THREE.MeshStandardMaterial({ map: wpnCamoTex, metalness: 0.8, roughness: 0.3 });
   const darkMetalMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.8, roughness: 0.3 });
   const gripMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
@@ -567,22 +622,130 @@ function updateCameraTransform() {
   const forward = new THREE.Vector3(0, 0, -1).applyEuler(euler);
 
   camera.lookAt(camera.position.clone().add(forward));
+
+  if (copPlayerMesh) {
+    copPlayerMesh.position.set(playerPos.x, playerPos.y, playerPos.z);
+    copPlayerMesh.rotation.y = cameraRotation.yaw;
+  }
+}
+
+function createSwatPartner() {
+  if (!scene) return;
+  if (swatPartnerMesh) scene.remove(swatPartnerMesh);
+
+  const swatGroup = new THREE.Group();
+
+  const suitMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.7 });
+  const vestMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5, metalness: 0.3 });
+  const helmetMat = new THREE.MeshStandardMaterial({ color: 0x020617, roughness: 0.4 });
+
+  // Body
+  const bodyMesh = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.7, 0.3), vestMat);
+  bodyMesh.position.y = 0.35;
+  swatGroup.add(bodyMesh);
+
+  // Helmet
+  const helmetMesh = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.38, 0.38), helmetMat);
+  helmetMesh.position.y = 0.88;
+  swatGroup.add(helmetMesh);
+
+  // Legs
+  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.55, 0.2), suitMat);
+  legL.position.set(-0.14, -0.25, 0);
+  const legR = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.55, 0.2), suitMat);
+  legR.position.set(0.14, -0.25, 0);
+  swatGroup.add(legL);
+  swatGroup.add(legR);
+
+  // Rifle Prop
+  const rifleMesh = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.1, 0.7), helmetMat);
+  rifleMesh.position.set(0.25, 0.35, -0.3);
+  swatGroup.add(rifleMesh);
+
+  swatGroup.position.set(playerPos.x - 1.5, -0.9, playerPos.z + 1);
+  scene.add(swatGroup);
+  swatPartnerMesh = swatGroup;
 }
 
 function createCopPlayerMesh() {
   if (copPlayerMesh) scene.remove(copPlayerMesh);
 
-  const geom = new THREE.CylinderGeometry(0.25, 0.25, 0.7, 8);
-  const mat = new THREE.MeshStandardMaterial({
-    color: 0x0284c7,
-    metalness: 0.8,
-    roughness: 0.2,
-    emissive: 0x0369a1,
-    emissiveIntensity: 0.6
-  });
-  copPlayerMesh = new THREE.Mesh(geom, mat);
-  copPlayerMesh.position.set(playerPos.x, playerPos.y, playerPos.z);
-  scene.add(copPlayerMesh);
+  const swatGroup = new THREE.Group();
+
+  const suitMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.7 });
+  const vestMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.5, metalness: 0.3 });
+  const badgeMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.9, roughness: 0.1 });
+  const bootMat = new THREE.MeshStandardMaterial({ color: 0x020617, roughness: 0.9 });
+  const padMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.4 });
+
+  // Torso / SWAT Vest
+  const torsoGeom = new THREE.BoxGeometry(0.5, 0.6, 0.3);
+  const torsoMesh = new THREE.Mesh(torsoGeom, vestMat);
+  torsoMesh.position.y = -0.3;
+  swatGroup.add(torsoMesh);
+
+  // Police Badge on Chest
+  const badgeGeom = new THREE.BoxGeometry(0.08, 0.1, 0.02);
+  const badgeMesh = new THREE.Mesh(badgeGeom, badgeMat);
+  badgeMesh.position.set(-0.15, -0.2, 0.16);
+  swatGroup.add(badgeMesh);
+
+  // Utility Belt
+  const beltGeom = new THREE.BoxGeometry(0.52, 0.08, 0.32);
+  const beltMesh = new THREE.Mesh(beltGeom, bootMat);
+  beltMesh.position.y = -0.62;
+  swatGroup.add(beltMesh);
+
+  // Holster on right thigh
+  const holsterGeom = new THREE.BoxGeometry(0.12, 0.2, 0.12);
+  const holsterMesh = new THREE.Mesh(holsterGeom, bootMat);
+  holsterMesh.position.set(0.28, -0.75, 0);
+  swatGroup.add(holsterMesh);
+
+  // Left Leg & Boot
+  const legL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.55, 0.2), suitMat);
+  legL.position.set(-0.14, -0.92, 0);
+  const padL = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.12, 0.06), padMat);
+  padL.position.set(-0.14, -0.88, 0.1);
+  const bootL = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.15, 0.28), bootMat);
+  bootL.position.set(-0.14, -1.22, 0.04);
+  swatGroup.add(legL);
+  swatGroup.add(padL);
+  swatGroup.add(bootL);
+
+  // Right Leg & Boot
+  const legR = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.55, 0.2), suitMat);
+  legR.position.set(0.14, -0.92, 0);
+  const padR = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.12, 0.06), padMat);
+  padR.position.set(0.14, -0.88, 0.1);
+  const bootR = new THREE.Mesh(new THREE.BoxGeometry(0.19, 0.15, 0.28), bootMat);
+  bootR.position.set(0.14, -1.22, 0.04);
+  swatGroup.add(legR);
+  swatGroup.add(padR);
+  swatGroup.add(bootR);
+
+  swatGroup.position.set(playerPos.x, playerPos.y, playerPos.z);
+  scene.add(swatGroup);
+  copPlayerMesh = swatGroup;
+}
+
+const rankBadgeEl = document.getElementById('rank-badge');
+
+function addXP(amount) {
+  gameState.xp += amount;
+  let newRank = '🎖️ CADET';
+  if (gameState.xp >= 1800) newRank = '👑 TACTICAL COMMANDER';
+  else if (gameState.xp >= 800) newRank = '🛡️ SWAT SPECIALIST';
+  else if (gameState.xp >= 300) newRank = '👮 PATROL OFFICER';
+
+  if (gameState.rank !== newRank) {
+    gameState.rank = newRank;
+    showToast(`🎉 RANK PROMOTION: You are now a ${newRank}!`);
+    playVoiceCallout('swat_cover');
+  }
+
+  if (rankBadgeEl) rankBadgeEl.textContent = gameState.rank;
+  showToast(`⭐ +${amount} XP GAINED!`);
 }
 
 // Procedural Canvas Texture Generator Helpers
@@ -753,36 +916,135 @@ function createWeaponTexture(baseHex, camoHex) {
 function createProceduralCity() {
   if (cityGroup) scene.remove(cityGroup);
   cityGroup = new THREE.Group();
-
-  const asphaltTex = createAsphaltTexture();
-  const buildingTex = createBuildingTexture();
-
-  // Expanded Asphalt Ground (50x50 map)
-  const groundGeom = new THREE.PlaneGeometry(50, 50);
-  const groundMat = new THREE.MeshStandardMaterial({ map: asphaltTex, roughness: 0.7 });
-  const ground = new THREE.Mesh(groundGeom, groundMat);
-  ground.rotation.x = -Math.PI / 2;
-  ground.position.y = -1.2;
-  cityGroup.add(ground);
-
-  // Expanded Buildings Grid
   obstacleMeshes = [];
-  const buildingMat = new THREE.MeshStandardMaterial({
-    map: buildingTex,
-    metalness: 0.5,
-    roughness: 0.4
-  });
+  destructibleMeshes = [];
 
-  for (let x = -20; x <= 20; x += 3.8) {
-    for (let z = -20; z <= 4; z += 3.8) {
-      if (Math.abs(x) < 3.2 && z > -6) continue; // Keep main boulevard corridor clear
+  if (currentMap === 'bank') {
+    // 🏦 First National Bank Interior Map
+    const floorGeom = new THREE.PlaneGeometry(36, 36);
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.2, metalness: 0.2 });
+    const floor = new THREE.Mesh(floorGeom, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -1.2;
+    cityGroup.add(floor);
 
-      const h = 3.0 + Math.random() * 7.0;
-      const bGeom = new THREE.BoxGeometry(2.6, h, 2.6);
-      const bMesh = new THREE.Mesh(bGeom, buildingMat);
-      bMesh.position.set(x + (Math.random() - 0.5) * 0.4, -1.2 + h / 2, z + (Math.random() - 0.5) * 0.4);
-      cityGroup.add(bMesh);
-      obstacleMeshes.push(bMesh);
+    // Marble Pillars
+    const pillarMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.3 });
+    for (let px = -10; px <= 10; px += 10) {
+      for (let pz = -14; pz <= 2; pz += 8) {
+        if (px === 0 && pz === -6) continue;
+        const pGeom = new THREE.CylinderGeometry(0.5, 0.5, 5, 16);
+        const pMesh = new THREE.Mesh(pGeom, pillarMat);
+        pMesh.position.set(px, 1.3, pz);
+        cityGroup.add(pMesh);
+        obstacleMeshes.push(pMesh);
+      }
+    }
+
+    // Destructible Glass Teller Partitions
+    const glassMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, transparent: true, opacity: 0.4, roughness: 0.1 });
+    for (let gx = -6; gx <= 6; gx += 4) {
+      const gGeom = new THREE.BoxGeometry(1.8, 1.2, 0.1);
+      const gMesh = new THREE.Mesh(gGeom, glassMat);
+      gMesh.position.set(gx, -0.6, -4);
+      gMesh.userData = { isDestructible: true, hp: 40, destructColor: 0x38bdf8 };
+      cityGroup.add(gMesh);
+      obstacleMeshes.push(gMesh);
+      destructibleMeshes.push(gMesh);
+    }
+  } else if (currentMap === 'range') {
+    // 🎯 Tactical Shooting Range Map
+    const floorGeom = new THREE.PlaneGeometry(30, 40);
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
+    const floor = new THREE.Mesh(floorGeom, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -1.2;
+    cityGroup.add(floor);
+
+    // Target Dummies at 5m, 10m, 15m, 20m
+    const distances = [-5, -10, -15, -20];
+    distances.forEach((dist, idx) => {
+      const dummyGroup = new THREE.Group();
+
+      // Wooden Post
+      const postGeom = new THREE.BoxGeometry(0.15, 1.8, 0.15);
+      const postMat = new THREE.MeshStandardMaterial({ color: 0x78350f });
+      const post = new THREE.Mesh(postGeom, postMat);
+      dummyGroup.add(post);
+
+      // Target Ring
+      const ringGeom = new THREE.CircleGeometry(0.5, 24);
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0xef4444, side: THREE.DoubleSide });
+      const ring = new THREE.Mesh(ringGeom, ringMat);
+      ring.position.set(0, 0.4, 0.08);
+      dummyGroup.add(ring);
+
+      const centerGeom = new THREE.CircleGeometry(0.2, 16);
+      const centerMat = new THREE.MeshBasicMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+      const center = new THREE.Mesh(centerGeom, centerMat);
+      center.position.set(0, 0.4, 0.09);
+      dummyGroup.add(center);
+
+      dummyGroup.position.set((idx % 2 === 0 ? -2 : 2), -0.3, dist);
+      dummyGroup.userData = { isTargetDummy: true };
+      cityGroup.add(dummyGroup);
+      obstacleMeshes.push(dummyGroup);
+    });
+
+    showToast('🎯 SHOOTING RANGE: Practice weapon recoil & aim on moving targets!');
+  } else if (currentMap === 'warehouse') {
+    // 🏭 Industrial Warehouse Map
+    const floorGeom = new THREE.PlaneGeometry(40, 40);
+    const floorMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.8 });
+    const floor = new THREE.Mesh(floorGeom, floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.position.y = -1.2;
+    cityGroup.add(floor);
+
+    // Shipping Containers
+    const containerMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.8, roughness: 0.3 });
+    for (let cx = -12; cx <= 12; cx += 8) {
+      const cGeom = new THREE.BoxGeometry(2.4, 2.4, 5.0);
+      const cMesh = new THREE.Mesh(cGeom, containerMat);
+      cMesh.position.set(cx, 0, -8);
+      cityGroup.add(cMesh);
+      obstacleMeshes.push(cMesh);
+    }
+
+    // Destructible Wooden Crates
+    const crateMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.9 });
+    for (let bx = -8; bx <= 8; bx += 3.5) {
+      const crateGeom = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+      const crateMesh = new THREE.Mesh(crateGeom, crateMat);
+      crateMesh.position.set(bx, -0.6, -3);
+      crateMesh.userData = { isDestructible: true, hp: 60, destructColor: 0xd97706 };
+      cityGroup.add(crateMesh);
+      obstacleMeshes.push(crateMesh);
+      destructibleMeshes.push(crateMesh);
+    }
+  } else {
+    // 🏙️ Precinct Plaza Street (Default)
+    const asphaltTex = createAsphaltTexture();
+    const buildingTex = createBuildingTexture();
+
+    const groundGeom = new THREE.PlaneGeometry(50, 50);
+    const groundMat = new THREE.MeshStandardMaterial({ map: asphaltTex, roughness: 0.7 });
+    const ground = new THREE.Mesh(groundGeom, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.position.y = -1.2;
+    cityGroup.add(ground);
+
+    const buildingMat = new THREE.MeshStandardMaterial({ map: buildingTex, metalness: 0.5, roughness: 0.4 });
+    for (let x = -20; x <= 20; x += 3.8) {
+      for (let z = -20; z <= 4; z += 3.8) {
+        if (Math.abs(x) < 3.2 && z > -6) continue;
+        const h = 3.0 + Math.random() * 7.0;
+        const bGeom = new THREE.BoxGeometry(2.6, h, 2.6);
+        const bMesh = new THREE.Mesh(bGeom, buildingMat);
+        bMesh.position.set(x + (Math.random() - 0.5) * 0.4, -1.2 + h / 2, z + (Math.random() - 0.5) * 0.4);
+        cityGroup.add(bMesh);
+        obstacleMeshes.push(bMesh);
+      }
     }
   }
 
@@ -980,8 +1242,165 @@ function spawnRobberEnemy() {
   activeEnemies.push(enemy);
 }
 
+let lastGamepadButtonState = {};
+
+function updateGamepadInput() {
+  if (!navigator.getGamepads) return;
+  const gamepads = navigator.getGamepads();
+  if (!gamepads) return;
+
+  for (let i = 0; i < gamepads.length; i++) {
+    const gp = gamepads[i];
+    if (gp && gp.connected) {
+      const deadzone = 0.15;
+
+      // Left Thumbstick (Movement: X, Z)
+      const lx = Math.abs(gp.axes[0]) > deadzone ? gp.axes[0] : 0;
+      const ly = Math.abs(gp.axes[1]) > deadzone ? gp.axes[1] : 0;
+
+      // Right Thumbstick (Camera Look: Yaw, Pitch)
+      const rx = Math.abs(gp.axes[2]) > deadzone ? gp.axes[2] : 0;
+      const ry = Math.abs(gp.axes[3]) > deadzone ? gp.axes[3] : 0;
+
+      if (rx !== 0) cameraRotation.yaw -= rx * 0.03;
+      if (ry !== 0) {
+        cameraRotation.pitch -= ry * 0.03;
+        cameraRotation.pitch = Math.max(-1.4, Math.min(1.4, cameraRotation.pitch));
+      }
+
+      // Movement application
+      if (lx !== 0 || ly !== 0) {
+        const euler = new THREE.Euler(0, cameraRotation.yaw, 0, 'YXZ');
+        const forward = new THREE.Vector3(0, 0, -1).applyEuler(euler);
+        const right = new THREE.Vector3(1, 0, 0).applyEuler(euler);
+
+        const moveSpeed = (isSprinting ? 0.18 : 0.1) * (isCrouched ? 0.5 : 1.0);
+        playerPos.addScaledVector(forward, -ly * moveSpeed);
+        playerPos.addScaledVector(right, lx * moveSpeed);
+      }
+
+      // Triggers: R2 Fire (7), L2 ADS (6)
+      if (gp.buttons[7] && gp.buttons[7].pressed) {
+        if (!lastGamepadButtonState['r2']) {
+          lastGamepadButtonState['r2'] = true;
+          handleShooterClick();
+        }
+      } else {
+        lastGamepadButtonState['r2'] = false;
+      }
+
+      isAimingDownSights = gp.buttons[6] && gp.buttons[6].pressed;
+
+      // Buttons: A (0 Jump), B (1 Crouch), X (2 Reload), Y (3 Knife)
+      if (gp.buttons[0] && gp.buttons[0].pressed && !lastGamepadButtonState['a']) {
+        lastGamepadButtonState['a'] = true;
+        if (!isJumping && playerPos.y <= -0.89) {
+          isJumping = true;
+          playerYVel = 0.22;
+        }
+      } else if (!gp.buttons[0] || !gp.buttons[0].pressed) {
+        lastGamepadButtonState['a'] = false;
+      }
+
+      if (gp.buttons[1] && gp.buttons[1].pressed && !lastGamepadButtonState['b']) {
+        lastGamepadButtonState['b'] = true;
+        toggleCrouch();
+      } else if (!gp.buttons[1] || !gp.buttons[1].pressed) {
+        lastGamepadButtonState['b'] = false;
+      }
+
+      if (gp.buttons[2] && gp.buttons[2].pressed && !lastGamepadButtonState['x']) {
+        lastGamepadButtonState['x'] = true;
+        reloadWeapon();
+      } else if (!gp.buttons[2] || !gp.buttons[2].pressed) {
+        lastGamepadButtonState['x'] = false;
+      }
+
+      if (gp.buttons[3] && gp.buttons[3].pressed && !lastGamepadButtonState['y']) {
+        lastGamepadButtonState['y'] = true;
+        performQuickMeleeKnife();
+      } else if (!gp.buttons[3] || !gp.buttons[3].pressed) {
+        lastGamepadButtonState['y'] = false;
+      }
+
+      break;
+    }
+  }
+}
+
 function animate() {
   requestAnimationFrame(animate);
+
+  // Animate Shooting Range Target Dummies
+  if (currentMap === 'range') {
+    obstacleMeshes.forEach(obs => {
+      if (obs.userData && obs.userData.isTargetDummy) {
+        obs.position.x += Math.sin(Date.now() * 0.003) * 0.015;
+      }
+    });
+  }
+
+  // Animate active Smoke Clouds
+  for (let i = activeSmokeClouds.length - 1; i >= 0; i--) {
+    const cloud = activeSmokeClouds[i];
+    cloud.life -= 1;
+    cloud.mesh.scale.addScalar(0.003);
+    if (cloud.life <= 0) {
+      scene.remove(cloud.mesh);
+      activeSmokeClouds.splice(i, 1);
+    }
+  }
+  updateGamepadInput();
+
+  // Update SWAT AI Squadmate
+  if (swatPartnerMesh && gameState.isRoundActive) {
+    swatPartnerTimer++;
+
+    // Follow player position at ~2.0m offset
+    const targetSwatPos = camera.position.clone().add(new THREE.Vector3(-1.8, -0.9 - camera.position.y, 0.8).applyQuaternion(camera.quaternion));
+    targetSwatPos.y = -0.9;
+    swatPartnerMesh.position.lerp(targetSwatPos, 0.06);
+
+    // Target closest enemy and provide covering fire
+    let closestEnemy = null;
+    let closestDist = Infinity;
+    activeEnemies.forEach(enemy => {
+      const d = swatPartnerMesh.position.distanceTo(enemy.mesh.position);
+      if (d < closestDist) {
+        closestDist = d;
+        closestEnemy = enemy;
+      }
+    });
+
+    if (closestEnemy && closestDist < 18) {
+      swatPartnerMesh.lookAt(closestEnemy.mesh.position);
+
+      if (swatPartnerTimer % 45 === 0) {
+        const swatEye = swatPartnerMesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
+        const enemyEye = closestEnemy.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
+
+        fireBulletTracerFromEnemy(swatEye, enemyEye, 0x38bdf8);
+        closestEnemy.hp -= 18;
+        closestEnemy.hitRecoil = 0.8;
+        playSound('pistol');
+
+        if (swatPartnerTimer % 180 === 0) {
+          playVoiceCallout('swat_cover');
+        }
+
+        if (closestEnemy.hp <= 0) {
+          scene.remove(closestEnemy.mesh);
+          const idx = activeEnemies.indexOf(closestEnemy);
+          if (idx !== -1) activeEnemies.splice(idx, 1);
+          checkRoundStatus();
+        } else {
+          const hpRatio = Math.max(0, closestEnemy.hp / closestEnemy.maxHp);
+          closestEnemy.hpBarFill.scale.x = hpRatio;
+          closestEnemy.hpBarFill.position.x = -0.29 * (1 - hpRatio);
+        }
+      }
+    }
+  }
 
   // Smooth weapon recoil decay & movement weapon bobbing
   if (weaponRecoil > 0) weaponRecoil *= 0.82;
@@ -1309,7 +1728,30 @@ function animate() {
   renderer.render(scene, camera);
 }
 
+function deployEnemySmokeGrenade(pos) {
+  if (!scene) return;
+  const cloudGroup = new THREE.Group();
+  for (let i = 0; i < 5; i++) {
+    const geom = new THREE.SphereGeometry(1.2 + Math.random() * 0.8, 8, 8);
+    const mat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, transparent: true, opacity: 0.7, roughness: 0.9 });
+    const p = new THREE.Mesh(geom, mat);
+    p.position.set((Math.random() - 0.5) * 1.5, Math.random() * 1.0, (Math.random() - 0.5) * 1.5);
+    cloudGroup.add(p);
+  }
+  cloudGroup.position.copy(pos);
+  scene.add(cloudGroup);
+
+  const cloudObj = { mesh: cloudGroup, life: 300, pos: pos.clone(), radius: 3.2 };
+  activeSmokeClouds.push(cloudObj);
+  showToast('💨 ROBBERS DEPLOYED SMOKE SCREEN!');
+}
+
 function hasLineOfSight(startPos, endPos) {
+  for (let s = 0; s < activeSmokeClouds.length; s++) {
+    const cloud = activeSmokeClouds[s];
+    if (startPos.distanceTo(cloud.pos) < cloud.radius) return false;
+  }
+
   if (!obstacleMeshes || obstacleMeshes.length === 0) return true;
 
   const dir = endPos.clone().sub(startPos);
@@ -1544,6 +1986,7 @@ function handleShooterClick(event) {
           if (enemyIdx !== -1) activeEnemies.splice(enemyIdx, 1);
           const reward = 100 + gameState.round * 20;
           gameState.cash += reward;
+          addXP(50);
           spawnFloatingText(`+$${reward}`, screenCenterX, screenCenterY, false);
           checkRoundStatus();
         } else {
@@ -1618,6 +2061,7 @@ function handleShooterClick(event) {
         activeEnemies.splice(hitEnemyIndex, 1);
         const reward = 100 + gameState.round * 20;
         gameState.cash += reward;
+        addXP(50);
         spawnFloatingText(`+$${reward}`, screenCenterX, screenCenterY, false);
         checkRoundStatus();
       } else {
@@ -1773,6 +2217,19 @@ function toggleCrouch() {
   showToast(isCrouched ? '🧎 CROUCHED (Tighter Spread, Slower Move)' : '🧍 STANDING');
 }
 
+function toggleNVG() {
+  isNVGOn = !isNVGOn;
+  if (nvgOverlayEl) {
+    if (isNVGOn) nvgOverlayEl.classList.remove('hidden');
+    else nvgOverlayEl.classList.add('hidden');
+  }
+  if (ambientLight) {
+    ambientLight.intensity = isNVGOn ? 2.8 : 0.5;
+  }
+  playSound('flashlight');
+  showToast(isNVGOn ? '🥽 NIGHT VISION GOGGLES ACTIVATED' : '🥽 NIGHT VISION OFF');
+}
+
 function toggleFlashlight() {
   isFlashlightOn = !isFlashlightOn;
   if (tacticalFlashlight) {
@@ -1883,6 +2340,27 @@ function toggleBuyMenu() {
   }
 }
 
+function checkDestructibleHit(hitObject, damage) {
+  if (!hitObject) return;
+  let target = hitObject;
+  while (target && !target.userData.isDestructible && target.parent && target !== scene) {
+    target = target.parent;
+  }
+  if (target && target.userData && target.userData.isDestructible) {
+    target.userData.hp -= damage;
+    if (target.userData.hp <= 0) {
+      spawnSparkParticles(target.position, target.userData.destructColor || 0xd97706);
+      playSound('explosion');
+      showToast('💥 DESTRUCTIBLE COVER BROKEN!');
+      if (cityGroup) cityGroup.remove(target);
+      const obsIdx = obstacleMeshes.indexOf(target);
+      if (obsIdx !== -1) obstacleMeshes.splice(obsIdx, 1);
+      const destIdx = destructibleMeshes.indexOf(target);
+      if (destIdx !== -1) destructibleMeshes.splice(destIdx, 1);
+    }
+  }
+}
+
 function checkRoundStatus() {
   if (gameState.isRoundActive && activeEnemies.length === 0 && enemiesToSpawnInRound === 0) {
     gameState.isRoundActive = false;
@@ -1969,6 +2447,54 @@ function restartGame() {
 }
 
 function setupEventListeners() {
+  const camoBlackBtn = document.getElementById('camo-black-btn');
+  const camoUrbanBtn = document.getElementById('camo-urban-btn');
+  const camoGoldBtn = document.getElementById('camo-gold-btn');
+
+  if (camoBlackBtn) {
+    camoBlackBtn.addEventListener('click', () => {
+      gameState.equippedCamo = 'black';
+      updateFPSWeaponMesh();
+      showToast('🎨 WEAPON CAMO: Midnight Black');
+    });
+  }
+  if (camoUrbanBtn) {
+    camoUrbanBtn.addEventListener('click', () => {
+      gameState.equippedCamo = 'urban';
+      updateFPSWeaponMesh();
+      showToast('🎨 WEAPON CAMO: Urban Digital');
+    });
+  }
+  if (camoGoldBtn) {
+    camoGoldBtn.addEventListener('click', () => {
+      if (!gameState.camos.gold) {
+        if (gameState.cash >= 1000) {
+          gameState.cash -= 1000;
+          gameState.camos.gold = true;
+          gameState.equippedCamo = 'gold';
+          playSound('buy');
+          updateFPSWeaponMesh();
+          updateUI();
+          showToast('🎨 UNLOCKED & EQUIPPED Gold Honor Camo!');
+        } else {
+          showToast('❌ Not enough cash for Gold Honor Camo ($1,000)!');
+        }
+      } else {
+        gameState.equippedCamo = 'gold';
+        updateFPSWeaponMesh();
+        showToast('🎨 WEAPON CAMO: Gold Honor');
+      }
+    });
+  }
+
+  const mapSelectEl = document.getElementById('map-select');
+  if (mapSelectEl) {
+    mapSelectEl.addEventListener('change', (e) => {
+      currentMap = e.target.value;
+      createProceduralCity();
+      showToast(`🗺️ MAP SWITCHED TO: ${e.target.options[e.target.selectedIndex].text}`);
+    });
+  }
   // Prevent default context menu on right click for ADS
   canvasContainer.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -2066,6 +2592,13 @@ function setupEventListeners() {
     if (e.code === 'KeyM' || e.code === 'Keym' || e.key === 'm' || e.key === 'M') {
       if (!isGameExited) {
         toggleTacticalMap();
+      }
+      return;
+    }
+
+    if (e.code === 'KeyN' || e.code === 'Keyn' || e.key === 'n' || e.key === 'N') {
+      if (!isGameExited) {
+        toggleNVG();
       }
       return;
     }

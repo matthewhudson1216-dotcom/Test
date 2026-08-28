@@ -13,6 +13,13 @@
     <header>
       <h1>🚨 City Defense: 3D Tactical Police Shooter</h1>
       <div class="header-controls">
+        <select id="map-select" class="map-select-dropdown" title="Select Map Environment">
+          <option value="street">🏙️ Precinct Plaza Street</option>
+          <option value="bank">🏦 First National Bank</option>
+          <option value="warehouse">🏭 Industrial Warehouse</option>
+          <option value="range">🎯 Tactical Shooting Range</option>
+        </select>
+        <span id="rank-badge" class="rank-badge">🎖️ CADET</span>
         <span id="round-display" class="round-badge">ROUND 1</span>
         <span id="cash-display" class="cash-badge">💵 CASH: $800</span>
         <button id="pause-btn" class="icon-btn danger-icon-btn" title="Pause / Exit Game">⏸️ Pause [ESC]</button>
@@ -59,6 +66,7 @@
             <span class="key-badge">V</span> Melee &nbsp;•&nbsp;
             <span class="key-badge">C</span> Crouch &nbsp;•&nbsp;
             <span class="key-badge">F</span> Flashlight &nbsp;•&nbsp;
+            <span class="key-badge">N</span> NVG &nbsp;•&nbsp;
             <span class="key-badge">G</span> Grenade &nbsp;•&nbsp;
             <span class="key-badge">M</span> Map &nbsp;•&nbsp;
             <span class="key-badge">B</span> Buy &nbsp;•&nbsp;
@@ -66,6 +74,7 @@
           </div>
           <div id="floating-text-container" class="floating-text-container"></div>
           <div id="damage-vignette" class="damage-vignette hidden"></div>
+          <div id="nvg-overlay" class="nvg-overlay hidden"></div>
           <div id="hitmarker" class="hitmarker hidden"></div>
           <div class="crosshair" id="dynamic-crosshair">
             <div class="ch-line top"></div>
@@ -116,6 +125,16 @@
       </div>
 
       <div class="buy-menu-grid">
+        <!-- Camo Skins Section -->
+        <div class="buy-category">
+          <h3>🎨 WEAPON CAMO SKINS</h3>
+          <div class="camo-btn-row">
+            <button id="camo-black-btn" class="buy-item-btn equipped">Midnight Black</button>
+            <button id="camo-urban-btn" class="buy-item-btn">Urban Digital</button>
+            <button id="camo-gold-btn" class="buy-item-btn">Gold Honor ($1,000)</button>
+          </div>
+        </div>
+
         <!-- Weapons Section -->
         <div class="buy-category">
           <h3>🔫 WEAPONS</h3>
