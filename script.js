@@ -46,6 +46,12 @@ let isPointerLocked = false;
 let isPaused = false;
 let isGameExited = false;
 
+// Crouch & Tactical Flashlight State
+let isCrouched = false;
+let cameraHeightOffset = 1.2; // Standing: 1.2, Crouched: 0.6
+let isFlashlightOn = false;
+let tacticalFlashlight = null;
+
 let keysPressed = { KeyW: false, KeyA: false, KeyS: false, KeyD: false };
 const moveSpeed = 0.08;
 let mouseSensitivity = parseFloat(localStorage.getItem('cop_sens') || '1.0') * 0.002;
@@ -86,6 +92,38 @@ function playSound(type) {
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
     osc.start(now);
     osc.stop(now + 0.08);
+  } else if (type === 'shell') {
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1800, now);
+    osc.frequency.exponentialRampToValueAtTime(1200, now + 0.04);
+    gain.gain.setValueAtTime(0.12 * volMult, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.04);
+    osc.start(now);
+    osc.stop(now + 0.04);
+  } else if (type === 'flashlight') {
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(800, now);
+    osc.frequency.setValueAtTime(1200, now + 0.02);
+    gain.gain.setValueAtTime(0.15 * volMult, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.03);
+    osc.start(now);
+    osc.stop(now + 0.03);
+  } else if (type === 'pin') {
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(1400, now);
+    osc.frequency.exponentialRampToValueAtTime(600, now + 0.08);
+    gain.gain.setValueAtTime(0.2 * volMult, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+    osc.start(now);
+    osc.stop(now + 0.08);
+  } else if (type === 'map') {
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(440, now);
+    osc.frequency.setValueAtTime(880, now + 0.05);
+    gain.gain.setValueAtTime(0.15 * volMult, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+    osc.start(now);
+    osc.stop(now + 0.1);
   } else if (type === 'shotgun') {
     osc.type = 'square';
     osc.frequency.setValueAtTime(300, now);
@@ -157,6 +195,10 @@ function playSound(type) {
 // DOM Elements
 const radarCanvas = document.getElementById('radar-canvas');
 const radarCtx = radarCanvas ? radarCanvas.getContext('2d') : null;
+const largeMapCanvas = document.getElementById('large-tactical-map');
+const largeMapCtx = largeMapCanvas ? largeMapCanvas.getContext('2d') : null;
+const tacticalMapModal = document.getElementById('tactical-map-modal');
+const closeMapBtn = document.getElementById('close-map-btn');
 const dynamicCrosshair = document.getElementById('dynamic-crosshair');
 
 // Settings Sliders DOM
@@ -208,6 +250,7 @@ const buyWpnRifleBtn = document.getElementById('buy-wpn-rifle');
 const buyArmorKevlarBtn = document.getElementById('buy-armor-kevlar');
 const buyArmorHeavyBtn = document.getElementById('buy-armor-heavy');
 const buyMedkitBtn = document.getElementById('buy-medkit');
+const buyGrenadesBtn = document.getElementById('buy-grenades');
 const buyAttReddotBtn = document.getElementById('buy-att-reddot');
 const buyAttLaserBtn = document.getElementById('buy-att-laser');
 
@@ -289,6 +332,13 @@ function initFPSWeaponGroup() {
   // Muzzle flash point light
   muzzleFlashPoint = new THREE.PointLight(0xfbbf24, 0, 4);
   fpsWeaponGroup.add(muzzleFlashPoint);
+
+  // Tactical Weapon Flashlight (SpotLight attached to camera)
+  tacticalFlashlight = new THREE.SpotLight(0xffffff, 0, 25, Math.PI / 6, 0.4, 1);
+  tacticalFlashlight.position.set(0, 0, 0);
+  tacticalFlashlight.target.position.set(0, 0, -1);
+  camera.add(tacticalFlashlight);
+  camera.add(tacticalFlashlight.target);
 
   updateFPSWeaponMesh();
 }
@@ -420,8 +470,12 @@ function updateFPSWeaponMesh() {
 
 function updateCameraTransform() {
   if (!camera) return;
-  // Position camera slightly above player mesh
-  camera.position.set(playerPos.x, playerPos.y + 1.2, playerPos.z + 0.5);
+
+  // Smoothly interpolate camera height between crouching and standing
+  const targetOffset = isCrouched ? 0.55 : 1.2;
+  cameraHeightOffset += (targetOffset - cameraHeightOffset) * 0.25;
+
+  camera.position.set(playerPos.x, playerPos.y + cameraHeightOffset, playerPos.z + 0.5);
 
   // Calculate look direction from yaw and pitch angles
   const euler = new THREE.Euler(cameraRotation.pitch, cameraRotation.yaw, 0, 'YXZ');
@@ -844,9 +898,14 @@ function animate() {
   if (weaponRecoil > 0) weaponRecoil *= 0.82;
   if (muzzleFlashPoint && muzzleFlashPoint.intensity > 0) muzzleFlashPoint.intensity *= 0.7;
 
-  // Dynamic Crosshair Spread based on Movement & Firing Recoil
+  // Dynamic Crosshair Spread based on Movement, Crouching, & Recoil
   let moveActive = keysPressed.KeyW || keysPressed.Keyw || keysPressed.KeyS || keysPressed.Keys || keysPressed.KeyA || keysPressed.Keya || keysPressed.KeyD || keysPressed.Keyd;
-  updateDynamicCrosshair(moveActive ? 12 : 0 + weaponRecoil * 18);
+  let baseSpread = moveActive ? 12 : 0;
+  if (isCrouched) baseSpread = Math.max(0, baseSpread - 6);
+  updateDynamicCrosshair(baseSpread + weaponRecoil * 18);
+
+  // Update Camera position height smoothly during Crouch transitions
+  updateCameraTransform();
 
   // Handle WASD Keyboard Movement (Relative to Camera Yaw Direction)
   if (!isPaused && !isGameExited) {
@@ -859,11 +918,12 @@ function animate() {
     if (keysPressed.KeyD || keysPressed.Keyd) moveX += 1;
 
     if (moveX !== 0 || moveZ !== 0) {
-      weaponBob += 0.12;
+      const activeSpeed = isCrouched ? moveSpeed * 0.5 : moveSpeed;
+      weaponBob += isCrouched ? 0.07 : 0.12;
       if (Math.sin(weaponBob) > 0.95) {
         playSound('footstep');
       }
-      const moveVec = new THREE.Vector3(moveX, 0, moveZ).normalize().multiplyScalar(moveSpeed);
+      const moveVec = new THREE.Vector3(moveX, 0, moveZ).normalize().multiplyScalar(activeSpeed);
       // Rotate movement vector according to camera yaw angle
       moveVec.applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraRotation.yaw);
 
@@ -1284,6 +1344,7 @@ function handleShooterClick(event) {
     }
     spawnFloatingText(`SHOTGUN BLAST!`, screenCenterX, screenCenterY, true);
     playSound('shotgun');
+    ejectShellCasing();
   } else {
     // Single Bullet Firing (Pistol / Rifle)
     let targetPoint = raycaster.ray.at(30, new THREE.Vector3());
@@ -1305,6 +1366,7 @@ function handleShooterClick(event) {
 
     spawnSparkParticles(targetPoint, wpnDef.color);
     fireBulletTracer(targetPoint, wpnDef.color);
+    ejectShellCasing();
 
     if (hitEnemyIndex !== -1) {
       const enemy = activeEnemies[hitEnemyIndex];
@@ -1363,6 +1425,43 @@ function spawnSparkParticles(hitPoint, hexColor) {
     const vel = new THREE.Vector3((Math.random() - 0.5) * 0.2, Math.random() * 0.2, (Math.random() - 0.5) * 0.2);
     activeProjectiles.push({ mesh: p, velocity: vel, life: 8 });
   }
+}
+
+function ejectShellCasing() {
+  if (!scene || !camera) return;
+
+  const geom = new THREE.CylinderGeometry(0.012, 0.012, 0.06, 6);
+  const mat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.9, roughness: 0.1 });
+  const casing = new THREE.Mesh(geom, mat);
+
+  let ejectPos = camera.position.clone();
+  ejectPos.add(new THREE.Vector3(0.2, -0.15, -0.3).applyQuaternion(camera.quaternion));
+  casing.position.copy(ejectPos);
+
+  const rightVec = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+  const upVec = new THREE.Vector3(0, 1, 0).applyQuaternion(camera.quaternion);
+
+  const vel = rightVec.multiplyScalar(0.08 + Math.random() * 0.04)
+    .add(upVec.multiplyScalar(0.06 + Math.random() * 0.04));
+
+  casing.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+
+  scene.add(casing);
+  playSound('shell');
+
+  let ticks = 0;
+  const interval = setInterval(() => {
+    ticks += 1;
+    casing.position.add(vel);
+    vel.y -= 0.008; // Gravity
+    casing.rotation.x += 0.2;
+    casing.rotation.z += 0.2;
+
+    if (casing.position.y <= -1.15 || ticks > 30) {
+      clearInterval(interval);
+      scene.remove(casing);
+    }
+  }, 30);
 }
 
 function fireBulletTracer(worldTargetPoint, hexColor) {
@@ -1448,6 +1547,113 @@ function startNextRound() {
 
   showToast(`🚨 ROUND ${gameState.round} STARTED! Neutralize all Robbers!`);
   updateUI();
+}
+
+function toggleCrouch() {
+  isCrouched = !isCrouched;
+  showToast(isCrouched ? '🧎 CROUCHED (Tighter Spread, Slower Move)' : '🧍 STANDING');
+}
+
+function toggleFlashlight() {
+  isFlashlightOn = !isFlashlightOn;
+  if (tacticalFlashlight) {
+    tacticalFlashlight.intensity = isFlashlightOn ? 5 : 0;
+  }
+  playSound('flashlight');
+  showToast(isFlashlightOn ? '🔦 TACTICAL FLASHLIGHT ON' : '🔦 FLASHLIGHT OFF');
+}
+
+function toggleTacticalMap() {
+  if (tacticalMapModal.classList.contains('hidden')) {
+    if (document.exitPointerLock) document.exitPointerLock();
+    tacticalMapModal.classList.remove('hidden');
+    renderLargeTacticalMap();
+    playSound('map');
+  } else {
+    tacticalMapModal.classList.add('hidden');
+  }
+}
+
+function renderLargeTacticalMap() {
+  if (!largeMapCtx || !largeMapCanvas) return;
+
+  const w = largeMapCanvas.width;
+  const h = largeMapCanvas.height;
+  const center = w / 2;
+  const scale = 9.0; // World units to pixels
+
+  largeMapCtx.clearRect(0, 0, w, h);
+
+  // Map background
+  largeMapCtx.fillStyle = '#020617';
+  largeMapCtx.fillRect(0, 0, w, h);
+
+  // Sector grid lines
+  largeMapCtx.strokeStyle = 'rgba(2, 132, 199, 0.2)';
+  largeMapCtx.lineWidth = 1;
+  for (let x = 0; x <= w; x += 50) {
+    largeMapCtx.beginPath();
+    largeMapCtx.moveTo(x, 0);
+    largeMapCtx.lineTo(x, h);
+    largeMapCtx.stroke();
+  }
+  for (let y = 0; y <= h; y += 50) {
+    largeMapCtx.beginPath();
+    largeMapCtx.moveTo(0, y);
+    largeMapCtx.lineTo(500, y);
+    largeMapCtx.stroke();
+  }
+
+  // Draw Barricades & Buildings
+  largeMapCtx.fillStyle = 'rgba(100, 116, 139, 0.7)';
+  barricadeObstacles.forEach(box => {
+    const minX = center + (box.min.x - playerPos.x) * scale;
+    const minZ = center + (box.min.z - playerPos.z) * scale;
+    const boxW = (box.max.x - box.min.x) * scale;
+    const boxH = (box.max.y - box.min.y) * scale;
+    largeMapCtx.fillRect(minX, minZ, boxW, boxH);
+  });
+
+  // Draw Active Enemy Targets
+  activeEnemies.forEach(enemy => {
+    const ex = center + (enemy.mesh.position.x - playerPos.x) * scale;
+    const ez = center + (enemy.mesh.position.z - playerPos.z) * scale;
+
+    largeMapCtx.beginPath();
+    largeMapCtx.arc(ex, ez, enemy.type === 'shield' ? 7 : 5, 0, Math.PI * 2);
+
+    if (enemy.type === 'runner') largeMapCtx.fillStyle = '#38bdf8';
+    else if (enemy.type === 'shield') largeMapCtx.fillStyle = '#a855f7';
+    else largeMapCtx.fillStyle = '#ef4444';
+
+    largeMapCtx.fill();
+    largeMapCtx.shadowColor = largeMapCtx.fillStyle;
+    largeMapCtx.shadowBlur = 8;
+  });
+
+  // Draw Player Marker (Cop)
+  largeMapCtx.save();
+  largeMapCtx.translate(center, center);
+  largeMapCtx.rotate(-cameraRotation.yaw);
+
+  // Vision Cone
+  largeMapCtx.fillStyle = 'rgba(52, 211, 153, 0.25)';
+  largeMapCtx.beginPath();
+  largeMapCtx.moveTo(0, 0);
+  largeMapCtx.arc(0, 0, 90, -Math.PI / 2 - 0.45, -Math.PI / 2 + 0.45);
+  largeMapCtx.closePath();
+  largeMapCtx.fill();
+
+  // Cop Marker
+  largeMapCtx.fillStyle = '#34d399';
+  largeMapCtx.beginPath();
+  largeMapCtx.moveTo(0, -12);
+  largeMapCtx.lineTo(-8, 9);
+  largeMapCtx.lineTo(0, 5);
+  largeMapCtx.lineTo(8, 9);
+  largeMapCtx.closePath();
+  largeMapCtx.fill();
+  largeMapCtx.restore();
 }
 
 function toggleBuyMenu() {
@@ -1606,7 +1812,7 @@ function setupEventListeners() {
     }
   });
 
-  // WASD, Reload, Grenade, Buy Menu & Escape Keyboard Listeners
+  // WASD, Crouch, Flashlight, Grenade, Map, Buy & Escape Keyboard Listeners
   window.addEventListener('keydown', (e) => {
     if (e.code === 'KeyB' || e.code === 'Keyb' || e.key === 'b' || e.key === 'B') {
       if (!isGameExited) {
@@ -1615,9 +1821,34 @@ function setupEventListeners() {
       return;
     }
 
+    if (e.code === 'KeyM' || e.code === 'Keym' || e.key === 'm' || e.key === 'M') {
+      if (!isGameExited) {
+        toggleTacticalMap();
+      }
+      return;
+    }
+
+    if (e.code === 'KeyF' || e.code === 'Keyf' || e.key === 'f' || e.key === 'F') {
+      if (!isGameExited) {
+        toggleFlashlight();
+      }
+      return;
+    }
+
+    if (e.code === 'KeyC' || e.code === 'Keyc' || e.key === 'c' || e.key === 'C' || e.code === 'ControlLeft' || e.code === 'ControlRight') {
+      if (!isGameExited) {
+        toggleCrouch();
+      }
+      return;
+    }
+
     if (e.code === 'Escape') {
       if (!isGameExited) {
-        togglePauseMenu();
+        if (!tacticalMapModal.classList.contains('hidden')) {
+          tacticalMapModal.classList.add('hidden');
+        } else {
+          togglePauseMenu();
+        }
       }
       return;
     }
@@ -1733,6 +1964,27 @@ function setupEventListeners() {
       showToast('❌ Not enough cash for Medkit!');
     }
   });
+
+  if (buyGrenadesBtn) {
+    buyGrenadesBtn.addEventListener('click', () => {
+      if (gameState.cash >= 200) {
+        gameState.cash -= 200;
+        gameState.grenades += 2;
+        playSound('buy');
+        showToast('💣 Restocked +2 Fragmentation Grenades!');
+        updateUI();
+        updateBuyMenuUI();
+      } else {
+        showToast('❌ Not enough cash for Grenades!');
+      }
+    });
+  }
+
+  if (closeMapBtn) {
+    closeMapBtn.addEventListener('click', () => {
+      tacticalMapModal.classList.add('hidden');
+    });
+  }
 
   if (buyAttReddotBtn) {
     buyAttReddotBtn.addEventListener('click', () => {

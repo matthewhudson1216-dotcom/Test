@@ -52,11 +52,14 @@
         <div id="canvas-container" class="canvas-container shooter-canvas">
           <div class="controls-hint-overlay">
             <span class="key-badge">MOUSE</span> Look &nbsp;•&nbsp;
-            <span class="key-badge">W</span><span class="key-badge">A</span><span class="key-badge">S</span><span class="key-badge">D</span> Move &nbsp;•&nbsp;
+            <span class="key-badge">WASD</span> Move &nbsp;•&nbsp;
             <span class="key-badge">CLICK</span> Fire &nbsp;•&nbsp;
-            <span class="key-badge">R</span> Reload &nbsp;•&nbsp;
-            <span class="key-badge">B</span> Buy Menu &nbsp;•&nbsp;
-            <span class="key-badge">ESC</span> Pause / Start Round
+            <span class="key-badge">C</span> Crouch &nbsp;•&nbsp;
+            <span class="key-badge">F</span> Flashlight &nbsp;•&nbsp;
+            <span class="key-badge">G</span> Grenade &nbsp;•&nbsp;
+            <span class="key-badge">M</span> Map &nbsp;•&nbsp;
+            <span class="key-badge">B</span> Buy &nbsp;•&nbsp;
+            <span class="key-badge">ESC</span> Pause
           </div>
           <div id="floating-text-container" class="floating-text-container"></div>
           <div id="damage-vignette" class="damage-vignette hidden"></div>
@@ -78,6 +81,27 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <!-- Full-Screen Tactical Map Overlay (Triggered by M Key) -->
+  <div id="tactical-map-modal" class="modal-overlay hidden">
+    <div class="map-modal-card">
+      <div class="map-modal-header">
+        <h2>🗺️ TACTICAL PRECINCT MAP</h2>
+        <span class="map-modal-subtitle">GRID SECTOR ALPHA-9 [M TO CLOSE]</span>
+      </div>
+      <div class="map-canvas-container">
+        <canvas id="large-tactical-map" width="500" height="500"></canvas>
+      </div>
+      <div class="map-legend">
+        <span><span class="legend-dot green"></span> OFFICER (YOU)</span>
+        <span><span class="legend-dot red"></span> ROBBER TARGET</span>
+        <span><span class="legend-dot blue"></span> RUNNER</span>
+        <span><span class="legend-dot purple"></span> SHIELD</span>
+        <span><span class="legend-dot gray"></span> BARRICADE / VEHICLE</span>
+      </div>
+      <button id="close-map-btn" class="ctrl-btn buy-menu-trigger-btn">CLOSE MAP [M / ESC]</button>
+    </div>
   </div>
 
   <!-- Intermission Buy Menu Modal -->
@@ -148,6 +172,15 @@
               <span class="item-cost">$250</span>
             </div>
             <button id="buy-medkit" class="buy-item-btn">BUY ($250)</button>
+          </div>
+
+          <div class="buy-item-card">
+            <div class="buy-item-info">
+              <h4>Grenade Resupply Pack</h4>
+              <p>Restores +2 Fragmentation Grenades</p>
+              <span class="item-cost">$200</span>
+            </div>
+            <button id="buy-grenades" class="buy-item-btn">BUY ($200)</button>
           </div>
         </div>
 
