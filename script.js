@@ -13,6 +13,9 @@ let gameState = {
   sfxMuted: false,
   skin: 'default',
   theme: 'cyan',
+  selectedWeapon: 'laser', // laser, plasma, missiles
+  health: 100,
+  maxHealth: 100,
   tech: {
     autobuyer: false,
     synergy1: false,
@@ -36,17 +39,24 @@ let gameState = {
   }
 };
 
-// Definitions for Achievements
+// Definitions for Combat Badges / Achievements
 const achievementsDef = [
-  { id: 'firstClick', title: 'First Spark', desc: 'Click the crystal 1 time', icon: '💎' },
-  { id: 'hundredEarned', title: 'Century Club', desc: 'Earn 100 total points', icon: '🪙' },
-  { id: 'firstDrone', title: 'Automated', desc: 'Buy your first Drone', icon: '🤖' },
-  { id: 'goldenCatcher', title: 'Gold Rush', desc: 'Click a Golden Crystal', icon: '🌟' },
-  { id: 'clickMaster', title: 'Click Master', desc: 'Click 100 total times', icon: '⚡' },
-  { id: 'cosmicArchitect', title: 'Cosmic Architect', desc: 'Buy a Cosmic Core', icon: '🌌' },
+  { id: 'firstClick', title: 'First Shot', desc: 'Fire weapons 1 time', icon: '⚡' },
+  { id: 'hundredEarned', title: 'Bounty Hunter', desc: 'Earn 100 total bounty points', icon: '🪙' },
+  { id: 'firstDrone', title: 'Turret Garrison', desc: 'Buy your first Defense Drone', icon: '🤖' },
+  { id: 'goldenCatcher', title: 'Sharpshooter', desc: 'Destroy a Golden Core', icon: '🌟' },
+  { id: 'clickMaster', title: 'Ace Pilot', desc: 'Fire 100 total shots', icon: '🚀' },
+  { id: 'cosmicArchitect', title: 'Station Overseer', desc: 'Buy a Station Core Matrix', icon: '🌌' },
   { id: 'firstAscension', title: 'Cosmic Rebirth', desc: 'Perform your first Ascension', icon: '🪐' },
-  { id: 'asteroidHunter', title: 'Star Hunter', desc: 'Destroy an Asteroid', icon: '☄️' }
+  { id: 'asteroidHunter', title: 'Boss Slayer', desc: 'Defeat a Cosmic Boss Enemy', icon: '☠️' }
 ];
+
+// Weapon Definitions
+const weaponsDef = {
+  laser: { name: 'Pulse Laser', heatPerShot: 12, cooldown: 180, multiplier: 1, color: 0x38bdf8 },
+  plasma: { name: 'Plasma Cannon', heatPerShot: 25, cooldown: 400, multiplier: 2.5, color: 0xf43f5e },
+  missiles: { name: 'Homing Missiles', heatPerShot: 35, cooldown: 650, multiplier: 4.5, color: 0xfbbf24 }
+};
 
 // Audio Synthesizer (Web Audio API)
 let audioCtx = null;
@@ -75,11 +85,27 @@ function playSound(type) {
 
   const now = audioCtx.currentTime;
 
-  if (type === 'click') {
+  if (type === 'laser') {
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(800, now);
+    osc.frequency.exponentialRampToValueAtTime(150, now + 0.1);
+    gain.gain.setValueAtTime(0.18, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+    osc.start(now);
+    osc.stop(now + 0.1);
+  } else if (type === 'plasma') {
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(400, now);
+    osc.frequency.exponentialRampToValueAtTime(80, now + 0.2);
+    gain.gain.setValueAtTime(0.25, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+    osc.start(now);
+    osc.stop(now + 0.2);
+  } else if (type === 'hit') {
     osc.type = 'sine';
-    osc.frequency.setValueAtTime(440, now);
-    osc.frequency.exponentialRampToValueAtTime(880, now + 0.08);
-    gain.gain.setValueAtTime(0.15, now);
+    osc.frequency.setValueAtTime(300, now);
+    osc.frequency.exponentialRampToValueAtTime(600, now + 0.08);
+    gain.gain.setValueAtTime(0.2, now);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
     osc.start(now);
     osc.stop(now + 0.08);
@@ -92,29 +118,11 @@ function playSound(type) {
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
     osc.start(now);
     osc.stop(now + 0.25);
-  } else if (type === 'golden') {
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(587.33, now);
-    osc.frequency.exponentialRampToValueAtTime(1174.66, now + 0.3);
-    gain.gain.setValueAtTime(0.3, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-    osc.start(now);
-    osc.stop(now + 0.3);
-  } else if (type === 'achievement') {
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(523.25, now);
-    osc.frequency.setValueAtTime(659.25, now + 0.1);
-    osc.frequency.setValueAtTime(783.99, now + 0.2);
-    osc.frequency.setValueAtTime(1046.50, now + 0.3);
-    gain.gain.setValueAtTime(0.15, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.45);
-    osc.start(now);
-    osc.stop(now + 0.45);
-  } else if (type === 'ascend') {
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(220, now);
-    osc.frequency.exponentialRampToValueAtTime(880, now + 0.5);
-    gain.gain.setValueAtTime(0.3, now);
+  } else if (type === 'boss') {
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(120, now);
+    osc.frequency.exponentialRampToValueAtTime(40, now + 0.6);
+    gain.gain.setValueAtTime(0.35, now);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.6);
     osc.start(now);
     osc.stop(now + 0.6);
@@ -131,12 +139,22 @@ const floatingContainer = document.getElementById('floating-text-container');
 const frenzyBanner = document.getElementById('frenzy-banner');
 const sfxToggleBtn = document.getElementById('sfx-toggle');
 const shardsDisplay = document.getElementById('shards-display');
+const comboDisplay = document.getElementById('combo-display');
 
-const overchargeText = document.getElementById('overcharge-text');
-const overchargeBarFill = document.getElementById('overcharge-bar-fill');
+const healthText = document.getElementById('health-text');
+const healthBarFill = document.getElementById('health-bar-fill');
+const heatText = document.getElementById('heat-text');
+const heatBarFill = document.getElementById('heat-bar-fill');
+
+const bossHud = document.getElementById('boss-hud');
+const bossBarFill = document.getElementById('boss-bar-fill');
 
 const skinSelect = document.getElementById('skin-select');
 const themeSelect = document.getElementById('theme-select');
+
+const wpnLaserBtn = document.getElementById('wpn-laser');
+const wpnPlasmaBtn = document.getElementById('wpn-plasma');
+const wpnMissilesBtn = document.getElementById('wpn-missiles');
 
 const statTotalClicksDetailed = document.getElementById('stat-clicks-detailed');
 const statTotalEarnedDetailed = document.getElementById('stat-earned-detailed');
@@ -178,53 +196,34 @@ const ascendBtn = document.getElementById('ascend-btn');
 
 // Tech Tree Elements
 const autobuyerStatus = document.getElementById('autobuyer-status');
-const costAutobuyer = document.getElementById('cost-autobuyer');
 const buyAutobuyerBtn = document.getElementById('buy-autobuyer');
-
 const synergy1Status = document.getElementById('synergy1-status');
-const costSynergy1 = document.getElementById('cost-synergy1');
 const buySynergy1Btn = document.getElementById('buy-synergy1');
-
 const synergy2Status = document.getElementById('synergy2-status');
-const costSynergy2 = document.getElementById('cost-synergy2');
 const buySynergy2Btn = document.getElementById('buy-synergy2');
 
 const upgradesUI = {
-  multiplier: {
-    count: document.getElementById('count-multiplier'),
-    cost: document.getElementById('cost-multiplier'),
-    btn: document.getElementById('buy-multiplier')
-  },
-  cursor: {
-    count: document.getElementById('count-cursor'),
-    cost: document.getElementById('cost-cursor'),
-    btn: document.getElementById('buy-cursor')
-  },
-  grandma: {
-    count: document.getElementById('count-grandma'),
-    cost: document.getElementById('cost-grandma'),
-    btn: document.getElementById('buy-grandma')
-  },
-  factory: {
-    count: document.getElementById('count-factory'),
-    cost: document.getElementById('cost-factory'),
-    btn: document.getElementById('buy-factory')
-  }
+  multiplier: { count: document.getElementById('count-multiplier'), cost: document.getElementById('cost-multiplier'), btn: document.getElementById('buy-multiplier') },
+  cursor: { count: document.getElementById('count-cursor'), cost: document.getElementById('cost-cursor'), btn: document.getElementById('buy-cursor') },
+  grandma: { count: document.getElementById('count-grandma'), cost: document.getElementById('cost-grandma'), btn: document.getElementById('buy-grandma') },
+  factory: { count: document.getElementById('count-factory'), cost: document.getElementById('cost-factory'), btn: document.getElementById('buy-factory') }
 };
 
 // Three.js 3D Variables
 let scene, camera, renderer;
 let mainCrystal, crystalWireframe, starField;
-let goldenCrystal = null;
-let asteroidMesh = null;
+
+let activeEnemies = [];
+let activeProjectiles = [];
+let activeBoss = null;
+
+let weaponHeat = 0; // 0 to 100
+let isOverheated = false;
+let comboStreak = 0;
+let lastHitTime = 0;
 
 let frenzyEndTime = 0;
 let frenzyMultiplier = 1;
-
-let overchargeValue = 0; // 0 to 100
-let overchargeActive = false;
-let overchargeEndTime = 0;
-
 let recentClicksTimestamps = [];
 
 let orbitingSatellites = [];
@@ -232,7 +231,6 @@ let raycaster, mouse;
 let targetScale = 1;
 let currentScale = 1;
 
-// Theme Palette Config
 const themePalettes = {
   cyan: { light1: 0x38bdf8, light2: 0x818cf8, star: 0x38bdf8, wire: 0x38bdf8 },
   nebula: { light1: 0xc084fc, light2: 0xe879f9, star: 0xc084fc, wire: 0xe879f9 },
@@ -250,8 +248,9 @@ function init() {
   update3DSatellites();
   checkOfflineEarnings();
 
-  // Passive income game loop (every 100ms)
+  // Primary Game Loop (every 100ms)
   setInterval(() => {
+    // Passive turret income
     let currentCps = getEffectiveCPS();
     if (currentCps > 0) {
       const passiveGain = currentCps / 10;
@@ -261,18 +260,21 @@ function init() {
       checkAchievements();
     }
 
-    // Overcharge Decay & Expiration
-    if (overchargeActive) {
-      if (Date.now() > overchargeEndTime) {
-        overchargeActive = false;
-        overchargeValue = 0;
-      }
-    } else {
-      if (overchargeValue > 0) {
-        overchargeValue = Math.max(0, overchargeValue - 0.8);
+    // Heat Cooldown & Decay
+    if (weaponHeat > 0) {
+      weaponHeat = Math.max(0, weaponHeat - 1.8);
+      if (weaponHeat === 0 && isOverheated) {
+        isOverheated = false;
+        showToast('✅ Weapon Cooled Down! Ready to Fire.');
       }
     }
-    updateOverchargeUI();
+    updateShooterHUD();
+
+    // Check Combo Streak timeout (reset after 3s without hits)
+    if (comboStreak > 0 && Date.now() - lastHitTime > 3000) {
+      comboStreak = 0;
+      updateShooterHUD();
+    }
 
     // Check frenzy expiration
     if (frenzyMultiplier > 1 && Date.now() > frenzyEndTime) {
@@ -287,50 +289,47 @@ function init() {
   }, 100);
 
   // Auto-save every 10 seconds
-  setInterval(() => {
-    saveGame();
-  }, 10000);
+  setInterval(() => { saveGame(); }, 10000);
 
-  // Random Golden Crystal spawn check (every 15 seconds)
+  // Spawn Enemy Pirates & Drones (every 4 seconds)
   setInterval(() => {
-    if (!goldenCrystal && Math.random() < 0.35) {
-      spawnGoldenCrystal();
+    if (activeEnemies.length < 6 && Math.random() < 0.75) {
+      spawnEnemyDrone();
     }
-  }, 15000);
+  }, 4000);
 
-  // Random Asteroid Shower mini-game check (every 20 seconds)
+  // Spawn Cosmic Boss encounter (every 45 seconds if no boss active)
   setInterval(() => {
-    if (!asteroidMesh && Math.random() < 0.30) {
-      spawnAsteroid();
+    if (!activeBoss && Math.random() < 0.40) {
+      spawnCosmicBoss();
     }
-  }, 20000);
+  }, 45000);
 }
 
 function getPrestigeMultiplier() {
   return 1 + (gameState.shards * 0.10);
 }
 
+function getComboMultiplier() {
+  return 1 + Math.min(comboStreak, 20) * 0.2; // up to 5x boost on 20 streak
+}
+
 function getEffectiveClickPower() {
   let basePower = gameState.clickPower;
-  // Synergy 2: Prisms boost Click Power by +5% of their total CPS
   if (gameState.tech.synergy2) {
     const prismCps = gameState.upgrades.grandma.count * gameState.upgrades.grandma.cps;
     basePower += prismCps * 0.05;
   }
 
-  let totalPower = basePower * frenzyMultiplier * getPrestigeMultiplier();
-  if (overchargeActive) {
-    totalPower *= 3; // 3x power in overcharge
-  }
+  const wpn = weaponsDef[gameState.selectedWeapon] || weaponsDef.laser;
+  let totalPower = basePower * wpn.multiplier * frenzyMultiplier * getPrestigeMultiplier() * getComboMultiplier();
   return Math.max(1, Math.floor(totalPower));
 }
 
 function getEffectiveCPS() {
   let droneCps = gameState.upgrades.cursor.count * gameState.upgrades.cursor.cps;
-  // Synergy 1: Drones produce +50% CPS per Prism owned
   if (gameState.tech.synergy1) {
-    const prismCount = gameState.upgrades.grandma.count;
-    droneCps *= (1 + prismCount * 0.50);
+    droneCps *= (1 + gameState.upgrades.grandma.count * 0.50);
   }
 
   let totalCps = droneCps +
@@ -338,9 +337,6 @@ function getEffectiveCPS() {
                  (gameState.upgrades.factory.count * gameState.upgrades.factory.cps);
 
   totalCps *= frenzyMultiplier * getPrestigeMultiplier();
-  if (overchargeActive) {
-    totalCps *= 3; // 3x CPS in overcharge
-  }
   return totalCps;
 }
 
@@ -348,7 +344,7 @@ function getEffectiveCPS() {
 function init3D() {
   const container = canvasContainer;
   const width = container.clientWidth || 400;
-  const height = container.clientHeight || 260;
+  const height = container.clientHeight || 270;
 
   scene = new THREE.Scene();
   camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
@@ -370,7 +366,6 @@ function init3D() {
   pointLight2.position.set(-5, -5, -2);
   scene.add(pointLight2);
 
-  // Main 3D Crystal Object Creation
   createMainCrystalMesh();
 
   // Background 3D Particles Field
@@ -385,12 +380,7 @@ function init3D() {
   }
 
   starsGeometry.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-  const starsMaterial = new THREE.PointsMaterial({
-    color: 0x38bdf8,
-    size: 0.08,
-    transparent: true,
-    opacity: 0.6
-  });
+  const starsMaterial = new THREE.PointsMaterial({ color: 0x38bdf8, size: 0.08, transparent: true, opacity: 0.6 });
   starField = new THREE.Points(starsGeometry, starsMaterial);
   scene.add(starField);
 
@@ -425,7 +415,6 @@ function createMainCrystalMesh() {
     matProps.color = 0xc084fc;
     matProps.emissive = 0x7e22ce;
   } else {
-    // Default blue icosahedron
     geom = new THREE.IcosahedronGeometry(1.4, 0);
     wireGeom = new THREE.IcosahedronGeometry(1.5, 0);
     matProps.color = 0x0284c7;
@@ -436,64 +425,58 @@ function createMainCrystalMesh() {
   mainCrystal = new THREE.Mesh(geom, material);
   scene.add(mainCrystal);
 
-  const wireMaterial = new THREE.MeshBasicMaterial({
-    color: matProps.color,
-    wireframe: true,
-    transparent: true,
-    opacity: 0.4
-  });
+  const wireMaterial = new THREE.MeshBasicMaterial({ color: matProps.color, wireframe: true, transparent: true, opacity: 0.4 });
   crystalWireframe = new THREE.Mesh(wireGeom, wireMaterial);
   scene.add(crystalWireframe);
 }
 
 function applyTheme(themeKey) {
   const pal = themePalettes[themeKey] || themePalettes.cyan;
-  if (starField) {
-    starField.material.color.setHex(pal.star);
-  }
+  if (starField) starField.material.color.setHex(pal.star);
 }
 
-function spawnGoldenCrystal() {
-  if (goldenCrystal || !scene) return;
-  const geom = new THREE.DodecahedronGeometry(0.35, 0);
-  const mat = new THREE.MeshStandardMaterial({
-    color: 0xfbbf24,
-    metalness: 0.9,
-    roughness: 0.1,
-    emissive: 0xd97706,
-    emissiveIntensity: 0.8
-  });
-  goldenCrystal = new THREE.Mesh(geom, mat);
-
-  const angle = Math.random() * Math.PI * 2;
-  const dist = 1.8 + Math.random() * 0.8;
-  goldenCrystal.position.set(Math.cos(angle) * dist, Math.sin(angle) * dist, (Math.random() - 0.5) * 1);
-
-  scene.add(goldenCrystal);
-
-  setTimeout(() => {
-    if (goldenCrystal) {
-      scene.remove(goldenCrystal);
-      goldenCrystal = null;
-    }
-  }, 8000);
-}
-
-function spawnAsteroid() {
-  if (asteroidMesh || !scene) return;
-  const geom = new THREE.DodecahedronGeometry(0.25, 1);
+function spawnEnemyDrone() {
+  if (!scene) return;
+  const geom = new THREE.OctahedronGeometry(0.22, 0);
   const mat = new THREE.MeshStandardMaterial({
     color: 0xf43f5e,
-    roughness: 0.8,
-    metalness: 0.2,
+    metalness: 0.8,
+    roughness: 0.2,
     emissive: 0xbe123c,
-    emissiveIntensity: 0.6
+    emissiveIntensity: 0.8
   });
-  asteroidMesh = new THREE.Mesh(geom, mat);
-  asteroidMesh.position.set(-3.5, (Math.random() - 0.5) * 2, 0);
-  asteroidMesh.userData = { speedX: 0.04 + Math.random() * 0.02 };
+  const mesh = new THREE.Mesh(geom, mat);
 
-  scene.add(asteroidMesh);
+  const angle = Math.random() * Math.PI * 2;
+  const startDist = 4.2;
+  mesh.position.set(Math.cos(angle) * startDist, Math.sin(angle) * startDist, (Math.random() - 0.5) * 1.5);
+
+  const hp = 1 + Math.floor(gameState.ascensionCount * 2);
+  const enemy = { mesh, hp, maxHp: hp, speed: 0.015 + Math.random() * 0.01, isBoss: false };
+  scene.add(mesh);
+  activeEnemies.push(enemy);
+}
+
+function spawnCosmicBoss() {
+  if (activeBoss || !scene) return;
+  const geom = new THREE.DodecahedronGeometry(0.7, 1);
+  const mat = new THREE.MeshStandardMaterial({
+    color: 0xbe123c,
+    metalness: 0.9,
+    roughness: 0.1,
+    emissive: 0xf43f5e,
+    emissiveIntensity: 0.9
+  });
+  const mesh = new THREE.Mesh(geom, mat);
+  mesh.position.set(0, 2.2, 0);
+
+  const hp = Math.max(10, Math.floor(getEffectiveClickPower() * 8));
+  activeBoss = { mesh, hp, maxHp: hp, angle: 0, radius: 2.2 };
+  scene.add(mesh);
+
+  bossHud.classList.remove('hidden');
+  playSound('boss');
+  showToast('⚠️ COSMIC BOSS INCOMING! Destroy it before it breaches the station!');
 }
 
 function animate() {
@@ -502,7 +485,6 @@ function animate() {
   if (mainCrystal) {
     mainCrystal.rotation.x += 0.005;
     mainCrystal.rotation.y += 0.008;
-
     crystalWireframe.rotation.x -= 0.003;
     crystalWireframe.rotation.y -= 0.005;
 
@@ -515,28 +497,54 @@ function animate() {
     }
   }
 
-  if (goldenCrystal) {
-    goldenCrystal.rotation.x += 0.02;
-    goldenCrystal.rotation.y += 0.03;
-    const pulseScale = 1 + Math.sin(Date.now() * 0.008) * 0.15;
-    goldenCrystal.scale.set(pulseScale, pulseScale, pulseScale);
-  }
+  // Animate Active Projectiles
+  for (let i = activeProjectiles.length - 1; i >= 0; i--) {
+    const proj = activeProjectiles[i];
+    proj.mesh.position.add(proj.velocity);
+    proj.life -= 1;
 
-  if (asteroidMesh) {
-    asteroidMesh.position.x += asteroidMesh.userData.speedX;
-    asteroidMesh.rotation.x += 0.05;
-    asteroidMesh.rotation.y += 0.05;
-
-    // Remove if floated off screen right
-    if (asteroidMesh.position.x > 3.8) {
-      scene.remove(asteroidMesh);
-      asteroidMesh = null;
+    if (proj.life <= 0) {
+      scene.remove(proj.mesh);
+      activeProjectiles.splice(i, 1);
     }
   }
 
-  if (starField) {
-    starField.rotation.y += 0.0008;
+  // Animate Enemy Drones towards Station
+  for (let i = activeEnemies.length - 1; i >= 0; i--) {
+    const enemy = activeEnemies[i];
+    enemy.mesh.rotation.x += 0.03;
+    enemy.mesh.rotation.y += 0.03;
+
+    // Move towards center
+    const dir = new THREE.Vector3(0, 0, 0).sub(enemy.mesh.position).normalize();
+    enemy.mesh.position.addScaledVector(dir, enemy.speed);
+
+    // Check if enemy hit station (radius < 1.4)
+    if (enemy.mesh.position.length() < 1.4) {
+      gameState.health = Math.max(0, gameState.health - 10);
+      scene.remove(enemy.mesh);
+      activeEnemies.splice(i, 1);
+      comboStreak = 0;
+      updateShooterHUD();
+      showToast('💥 Station Shield Hit by Enemy Drone!');
+
+      if (gameState.health <= 0) {
+        gameState.health = gameState.maxHealth;
+        showToast('🛡️ Shield Recharged! Station Rebooted.');
+      }
+    }
   }
+
+  // Animate Boss
+  if (activeBoss) {
+    activeBoss.angle += 0.01;
+    activeBoss.mesh.position.x = Math.cos(activeBoss.angle) * activeBoss.radius;
+    activeBoss.mesh.position.y = Math.sin(activeBoss.angle) * (activeBoss.radius * 0.6);
+    activeBoss.mesh.rotation.x += 0.02;
+    activeBoss.mesh.rotation.y += 0.02;
+  }
+
+  if (starField) starField.rotation.y += 0.0008;
 
   orbitingSatellites.forEach(sat => {
     sat.angle += sat.speed;
@@ -561,117 +569,152 @@ function onWindowResize() {
   renderer.setSize(width, height);
 }
 
-function handle3DClick(event) {
+function handleShooterClick(event) {
+  if (isOverheated) {
+    showToast('⚠️ WEAPONS OVERHEATED! Wait for Cooldown.');
+    return;
+  }
+
   const rect = renderer.domElement.getBoundingClientRect();
   mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
   mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
 
+  const wpn = weaponsDef[gameState.selectedWeapon] || weaponsDef.laser;
+  weaponHeat = Math.min(100, weaponHeat + wpn.heatPerShot);
+  if (weaponHeat >= 100) {
+    isOverheated = true;
+    showToast('🔥 WEAPONS OVERHEATED!');
+  }
+
   raycaster.setFromCamera(mouse, camera);
 
-  // Check Golden Crystal click
-  if (goldenCrystal) {
-    const goldenIntersects = raycaster.intersectObject(goldenCrystal);
-    if (goldenIntersects.length > 0) {
-      triggerGoldenClick(event.clientX - rect.left, event.clientY - rect.top);
+  // Fire Visual 3D Laser Bolt
+  fireLaserBeam(event.clientX - rect.left, event.clientY - rect.top, wpn.color);
+
+  // Check Boss Hit
+  if (activeBoss) {
+    const bossIntersects = raycaster.intersectObject(activeBoss.mesh);
+    if (bossIntersects.length > 0) {
+      hitBoss(event.clientX - rect.left, event.clientY - rect.top);
       return;
     }
   }
 
-  // Check Asteroid click
-  if (asteroidMesh) {
-    const asteroidIntersects = raycaster.intersectObject(asteroidMesh);
-    if (asteroidIntersects.length > 0) {
-      triggerAsteroidClick(event.clientX - rect.left, event.clientY - rect.top);
-      return;
+  // Check Enemy Drone Hit
+  let hitEnemy = false;
+  for (let i = activeEnemies.length - 1; i >= 0; i--) {
+    const enemy = activeEnemies[i];
+    const enemyIntersects = raycaster.intersectObject(enemy.mesh);
+    if (enemyIntersects.length > 0) {
+      hitEnemy = true;
+      enemy.hp -= 1;
+
+      if (enemy.hp <= 0) {
+        scene.remove(enemy.mesh);
+        activeEnemies.splice(i, 1);
+
+        const bounty = Math.max(15, Math.floor(getEffectiveClickPower() * 1.5));
+        gameState.score += bounty;
+        gameState.totalEarned += bounty;
+        gameState.goldenClicked += 1;
+
+        comboStreak += 1;
+        lastHitTime = Date.now();
+
+        spawnFloatingText(`+${bounty} HIT!`, event.clientX - rect.left, event.clientY - rect.top, true);
+        playSound('hit');
+      }
+      break;
     }
   }
 
+  // Click Main Crystal or Area
   const intersects = raycaster.intersectObjects([mainCrystal, crystalWireframe]);
-
   if (intersects.length > 0 || event.target === clickBtn) {
-    const clickX = event.clientX ? event.clientX - rect.left : rect.width / 2;
-    const clickY = event.clientY ? event.clientY - rect.top : rect.height / 2;
-    triggerClick(clickX, clickY);
+    triggerShot(event.clientX ? event.clientX - rect.left : rect.width / 2, event.clientY ? event.clientY - rect.top : rect.height / 2);
+  } else if (!hitEnemy) {
+    // Reset combo streak on complete miss
+    comboStreak = 0;
+    updateShooterHUD();
   }
 }
 
-function triggerGoldenClick(x, y) {
-  if (!goldenCrystal) return;
-  scene.remove(goldenCrystal);
-  goldenCrystal = null;
+function fireLaserBeam(targetX, targetY, hexColor) {
+  if (!scene) return;
+  const geom = new THREE.CylinderGeometry(0.04, 0.04, 1, 6);
+  const mat = new THREE.MeshBasicMaterial({ color: hexColor });
+  const proj = new THREE.Mesh(geom, mat);
 
-  frenzyMultiplier = 7;
-  frenzyEndTime = Date.now() + 10000;
-  frenzyBanner.classList.remove('hidden');
+  proj.position.set(0, -2, 4); // fire from bottom camera viewpoint
+  const worldTarget = new THREE.Vector3(
+    ((targetX / canvasContainer.clientWidth) * 2 - 1) * 3,
+    (-((targetY / canvasContainer.clientHeight) * 2 - 1)) * 2,
+    0
+  );
 
-  const bonusPoints = Math.max(10, Math.floor(getEffectiveCPS() * 15 + getEffectiveClickPower() * 10));
-  gameState.score += bonusPoints;
-  gameState.totalEarned += bonusPoints;
-  gameState.goldenClicked += 1;
+  const vel = worldTarget.sub(proj.position).normalize().multiplyScalar(0.4);
+  proj.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), vel.clone().normalize());
 
-  spawnFloatingText(`+${bonusPoints} FRENZY!`, x, y, true);
-  playSound('golden');
-  showToast('🌟 GOLDEN FRENZY! 7x Multiplier for 10s!');
+  scene.add(proj);
+  activeProjectiles.push({ mesh: proj, velocity: vel, life: 15 });
+  playSound(gameState.selectedWeapon === 'plasma' ? 'plasma' : 'laser');
+}
 
-  gameState.achievements.goldenCatcher = true;
-  checkAchievements();
+function hitBoss(x, y) {
+  if (!activeBoss) return;
+  const damage = getEffectiveClickPower();
+  activeBoss.hp -= damage;
+
+  comboStreak += 1;
+  lastHitTime = Date.now();
+
+  spawnFloatingText(`-${damage}`, x, y, true);
+  playSound('hit');
+
+  if (activeBoss.hp <= 0) {
+    scene.remove(activeBoss.mesh);
+    activeBoss = null;
+    bossHud.classList.add('hidden');
+
+    const bossBounty = Math.max(100, Math.floor(getEffectiveCPS() * 30 + 200));
+    gameState.score += bossBounty;
+    gameState.totalEarned += bossBounty;
+    gameState.asteroidsDestroyed += 1;
+
+    showToast(`☠️ COSMIC BOSS DEFEATED! Earned +${bossBounty} Bounty!`);
+    gameState.achievements.asteroidHunter = true;
+    checkAchievements();
+  }
+  updateShooterHUD();
   updateUI();
 }
 
-function triggerAsteroidClick(x, y) {
-  if (!asteroidMesh) return;
-  scene.remove(asteroidMesh);
-  asteroidMesh = null;
-
-  const bonusPoints = Math.max(25, Math.floor(getEffectiveCPS() * 30 + 50));
-  gameState.score += bonusPoints;
-  gameState.totalEarned += bonusPoints;
-  gameState.asteroidsDestroyed += 1;
-
-  spawnFloatingText(`+${bonusPoints} ASTEROID!`, x, y, true);
-  playSound('golden');
-  showToast('☄️ ASTEROID DESTROYED! Instant Bonus Points!');
-
-  gameState.achievements.asteroidHunter = true;
-  checkAchievements();
-  updateUI();
-}
-
-function triggerClick(x = 200, y = 140) {
+function triggerShot(x = 200, y = 140) {
   const addedPoints = getEffectiveClickPower();
   gameState.score += addedPoints;
   gameState.totalEarned += addedPoints;
   gameState.totalClicks += 1;
   targetScale = 0.85;
 
-  // Overcharge gauge build up
-  if (!overchargeActive) {
-    overchargeValue = Math.min(100, overchargeValue + 8);
-    if (overchargeValue >= 100) {
-      overchargeActive = true;
-      overchargeEndTime = Date.now() + 6000; // 6s of Overcharge hyper-speed
-      showToast('⚡ OVERCHARGE HYPER-SPEED ACTIVATED! 3x Speed!');
-      playSound('golden');
-    }
-  }
-
-  // Update CPM tracking
   recentClicksTimestamps.push(Date.now());
+  spawnFloatingText(`+${addedPoints}`, x, y, frenzyMultiplier > 1 || comboStreak > 5);
 
-  spawnFloatingText(`+${addedPoints}`, x, y, frenzyMultiplier > 1 || overchargeActive);
-  playSound('click');
   checkAchievements();
   updateUI();
 }
 
-function updateOverchargeUI() {
-  if (overchargeActive) {
-    const remaining = Math.max(0, Math.ceil((overchargeEndTime - Date.now()) / 1000));
-    overchargeText.textContent = `ACTIVE! (${remaining}s)`;
-    overchargeBarFill.style.width = `100%`;
-  } else {
-    overchargeText.textContent = `${Math.floor(overchargeValue)}%`;
-    overchargeBarFill.style.width = `${overchargeValue}%`;
+function updateShooterHUD() {
+  healthText.textContent = `${gameState.health}/${gameState.maxHealth}`;
+  healthBarFill.style.width = `${(gameState.health / gameState.maxHealth) * 100}%`;
+
+  heatText.textContent = `${Math.floor(weaponHeat)}%`;
+  heatBarFill.style.width = `${weaponHeat}%`;
+
+  comboDisplay.textContent = `COMBO ${comboStreak}x`;
+
+  if (activeBoss) {
+    const bossPct = Math.max(0, (activeBoss.hp / activeBoss.maxHp) * 100);
+    bossBarFill.style.width = `${bossPct}%`;
   }
 }
 
@@ -688,7 +731,6 @@ function spawnFloatingText(text, x, y, isGolden = false) {
 
 function update3DSatellites() {
   if (!scene) return;
-
   orbitingSatellites.forEach(sat => scene.remove(sat.mesh));
   orbitingSatellites = [];
 
@@ -697,7 +739,6 @@ function update3DSatellites() {
                          gameState.upgrades.factory.count;
 
   const countToSpawn = Math.min(totalBuildings, 25);
-
   for (let i = 0; i < countToSpawn; i++) {
     const isBig = i >= 10;
     const geom = isBig ? new THREE.TetrahedronGeometry(0.2) : new THREE.OctahedronGeometry(0.12);
@@ -723,11 +764,16 @@ function update3DSatellites() {
 }
 
 function setupEventListeners() {
-  canvasContainer.addEventListener('pointerdown', handle3DClick);
+  canvasContainer.addEventListener('pointerdown', handleShooterClick);
   clickBtn.addEventListener('click', (e) => {
     const rect = canvasContainer.getBoundingClientRect();
-    triggerClick(rect.width / 2, rect.height / 2);
+    handleShooterClick({ clientX: rect.left + rect.width / 2, clientY: rect.top + rect.height / 2, target: clickBtn });
   });
+
+  // Weapon Selector Buttons
+  wpnLaserBtn.addEventListener('click', () => switchWeapon('laser'));
+  wpnPlasmaBtn.addEventListener('click', () => switchWeapon('plasma'));
+  wpnMissilesBtn.addEventListener('click', () => switchWeapon('missiles'));
 
   // Tab switching handlers
   Object.keys(tabBtns).forEach(tabKey => {
@@ -741,7 +787,6 @@ function setupEventListeners() {
     });
   });
 
-  // Customizer Select Handlers
   skinSelect.addEventListener('change', (e) => {
     gameState.skin = e.target.value;
     createMainCrystalMesh();
@@ -756,7 +801,6 @@ function setupEventListeners() {
     upgradesUI[key].btn.addEventListener('click', () => buyUpgrade(key));
   });
 
-  // Tech Tree Upgrade Handlers
   buyAutobuyerBtn.addEventListener('click', () => {
     if (gameState.score >= 1000 && !gameState.tech.autobuyer) {
       gameState.score -= 1000;
@@ -787,7 +831,6 @@ function setupEventListeners() {
     }
   });
 
-  // Ascension Handler
   ascendBtn.addEventListener('click', () => {
     if (gameState.score >= 50000) {
       const earnedShards = Math.floor(Math.pow(gameState.score / 50000, 0.5) * 5);
@@ -818,12 +861,16 @@ function setupEventListeners() {
   });
 }
 
-function runAutobuyer() {
-  const available = Object.keys(upgradesUI).map(k => ({
-    key: k,
-    cost: gameState.upgrades[k].cost
-  })).sort((a, b) => a.cost - b.cost);
+function switchWeapon(type) {
+  gameState.selectedWeapon = type;
+  wpnLaserBtn.classList.toggle('active', type === 'laser');
+  wpnPlasmaBtn.classList.toggle('active', type === 'plasma');
+  wpnMissilesBtn.classList.toggle('active', type === 'missiles');
+  updateUI();
+}
 
+function runAutobuyer() {
+  const available = Object.keys(upgradesUI).map(k => ({ key: k, cost: gameState.upgrades[k].cost })).sort((a, b) => a.cost - b.cost);
   if (available.length > 0 && gameState.score >= available[0].cost) {
     buyUpgrade(available[0].key);
   }
@@ -844,7 +891,7 @@ function performAscension(earnedShards) {
   };
 
   gameState.achievements.firstAscension = true;
-  playSound('ascend');
+  playSound('buy');
   showToast(`🌌 ASCENSION COMPLETE! Earned ${earnedShards} Cosmic Shards!`);
 
   checkAchievements();
@@ -878,19 +925,16 @@ function buyUpgrade(type) {
 function updateUI() {
   scoreDisplay.textContent = Math.floor(gameState.score);
   cpsDisplay.textContent = `${Math.floor(getEffectiveCPS())} per sec`;
-  clickPowerDisplay.textContent = `+${Math.floor(getEffectiveClickPower())} per click`;
+  clickPowerDisplay.textContent = `+${Math.floor(getEffectiveClickPower())} per shot`;
 
   shardsDisplay.textContent = `🌌 ${gameState.shards} Shards (+${gameState.shards * 10}%)`;
 
-  // Customizer Sync
   skinSelect.value = gameState.skin;
   themeSelect.value = gameState.theme;
 
-  // Stats Analytics
   statTotalClicksDetailed.textContent = gameState.totalClicks;
   statTotalEarnedDetailed.textContent = Math.floor(gameState.totalEarned);
 
-  // Calculate CPM (clicks in past 60s)
   const now = Date.now();
   recentClicksTimestamps = recentClicksTimestamps.filter(t => now - t < 60000);
   statCpm.textContent = recentClicksTimestamps.length;
@@ -899,7 +943,6 @@ function updateUI() {
   statAsteroidsCount.textContent = gameState.asteroidsDestroyed;
   statAscensionCount.textContent = gameState.ascensionCount;
 
-  // Upgrades List UI
   Object.keys(upgradesUI).forEach(key => {
     const upgrade = gameState.upgrades[key];
     const ui = upgradesUI[key];
@@ -908,7 +951,6 @@ function updateUI() {
     ui.btn.disabled = gameState.score < upgrade.cost;
   });
 
-  // Tech Tree UI
   autobuyerStatus.textContent = gameState.tech.autobuyer ? 'Unlocked' : 'Locked';
   buyAutobuyerBtn.disabled = gameState.tech.autobuyer || gameState.score < 1000;
 
@@ -918,13 +960,13 @@ function updateUI() {
   synergy2Status.textContent = gameState.tech.synergy2 ? 'Unlocked' : 'Locked';
   buySynergy2Btn.disabled = gameState.tech.synergy2 || gameState.score < 10000;
 
-  // Ascension UI
   const pendingShards = gameState.score >= 50000 ? Math.floor(Math.pow(gameState.score / 50000, 0.5) * 5) : 0;
   ascensionShardsPending.textContent = pendingShards;
   ascensionBoostCurrent.textContent = `+${gameState.shards * 10}%`;
   ascendBtn.disabled = gameState.score < 50000;
 
   sfxToggleBtn.textContent = gameState.sfxMuted ? '🔇 SFX Off' : '🔊 SFX On';
+  updateShooterHUD();
 }
 
 function renderAchievementsUI() {
@@ -967,8 +1009,8 @@ function unlockAchievement(id) {
   gameState.achievements[id] = true;
   const def = achievementsDef.find(a => a.id === id);
   if (def) {
-    playSound('achievement');
-    showToast(`🏆 Achievement Unlocked: ${def.title}!`);
+    playSound('buy');
+    showToast(`🏆 Combat Badge Unlocked: ${def.title}!`);
   }
   renderAchievementsUI();
 }
@@ -979,9 +1021,7 @@ function showToast(message) {
   toast.innerHTML = `<span>${message}</span>`;
   toastContainer.appendChild(toast);
 
-  setTimeout(() => {
-    toast.remove();
-  }, 3500);
+  setTimeout(() => { toast.remove(); }, 3500);
 }
 
 function saveGame() {
@@ -1043,6 +1083,9 @@ function resetGame() {
     sfxMuted: false,
     skin: 'default',
     theme: 'cyan',
+    selectedWeapon: 'laser',
+    health: 100,
+    maxHealth: 100,
     tech: {
       autobuyer: false,
       synergy1: false,
@@ -1065,10 +1108,14 @@ function resetGame() {
       asteroidHunter: false
     }
   };
+  weaponHeat = 0;
+  isOverheated = false;
+  comboStreak = 0;
   frenzyMultiplier = 1;
   frenzyBanner.classList.add('hidden');
   createMainCrystalMesh();
   applyTheme(gameState.theme);
+  switchWeapon('laser');
   renderAchievementsUI();
   updateUI();
   update3DSatellites();

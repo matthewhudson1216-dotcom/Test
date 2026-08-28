@@ -3,53 +3,81 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>3D Counter Clicker Game</title>
+  <title>3D Space Shooter & Counter Game</title>
   <link rel="stylesheet" href="style.css">
   <!-- Three.js CDN -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
-  <div class="game-container">
+  <div class="game-container shooter-theme">
     <header>
-      <h1>3D Counter Clicker Game</h1>
+      <h1>3D Space Defense Shooter</h1>
       <div class="header-controls">
+        <span id="combo-display" class="combo-badge">COMBO 0x</span>
         <span id="shards-display" class="shards-badge">🌌 0 Shards (+0%)</span>
         <button id="sfx-toggle" class="icon-btn" title="Toggle Sound Effects">🔊 SFX On</button>
       </div>
     </header>
 
     <main class="game-layout">
-      <!-- 3D Viewport & Clicker Section -->
-      <section class="clicker-section">
+      <!-- 3D Shooter Viewport & HUD -->
+      <section class="clicker-section shooter-section">
         <div class="score-board">
           <div id="score" class="score-display">0</div>
           <div class="sub-stats">
             <span id="cps-display">0 per sec</span> •
-            <span id="click-power-display">+1 per click</span>
+            <span id="click-power-display">+1 per shot</span>
           </div>
           <div id="frenzy-banner" class="frenzy-banner hidden">✨ FRENZY 7X MULTIPLIER! ✨</div>
 
-          <!-- Overcharge Gauge Bar -->
-          <div class="overcharge-wrapper" title="Fast consecutive clicks trigger Overcharge Hyper-Speed!">
-            <div class="overcharge-label">OVERCHARGE: <span id="overcharge-text">0%</span></div>
-            <div class="overcharge-bar-bg">
-              <div id="overcharge-bar-fill" class="overcharge-bar-fill" style="width: 0%;"></div>
+          <!-- Station Health & Weapon Heat HUD Bars -->
+          <div class="hud-bars-container">
+            <div class="hud-bar-group">
+              <div class="hud-label">STATION SHIELD: <span id="health-text">100/100</span></div>
+              <div class="hud-bar-bg">
+                <div id="health-bar-fill" class="hud-bar-fill health-fill" style="width: 100%;"></div>
+              </div>
+            </div>
+            <div class="hud-bar-group">
+              <div class="hud-label">WEAPON HEAT: <span id="heat-text">0%</span></div>
+              <div class="hud-bar-bg">
+                <div id="heat-bar-fill" class="hud-bar-fill heat-fill" style="width: 0%;"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Boss Health Bar -->
+          <div id="boss-hud" class="boss-hud hidden">
+            <div class="boss-title">⚠️ COSMIC BOSS DETECTED ⚠️</div>
+            <div class="hud-bar-bg boss-bar-bg">
+              <div id="boss-bar-fill" class="hud-bar-fill boss-fill" style="width: 100%;"></div>
             </div>
           </div>
         </div>
 
-        <!-- 3D Canvas Viewport -->
-        <div id="canvas-container" class="canvas-container">
-          <div class="canvas-hint">Click the 3D Crystal!</div>
+        <!-- 3D Canvas Viewport with Crosshair -->
+        <div id="canvas-container" class="canvas-container shooter-canvas">
+          <div class="canvas-hint">Aim & Click to Fire Plasma Lasers!</div>
           <div id="floating-text-container" class="floating-text-container"></div>
+          <div class="crosshair"></div>
         </div>
 
-        <button id="click-btn" class="main-click-btn">CLICK 3D CRYSTAL</button>
+        <button id="click-btn" class="main-click-btn fire-btn">⚡ FIRE WEAPONS</button>
 
-        <!-- Crystal Skins & Themes Customizer -->
+        <!-- Weapon Armory Selector -->
+        <div class="armory-box">
+          <div class="armory-label">ARMORY:</div>
+          <div class="weapon-selector">
+            <button id="wpn-laser" class="weapon-btn active">Pulse Laser</button>
+            <button id="wpn-plasma" class="weapon-btn">Plasma Cannon</button>
+            <button id="wpn-missiles" class="weapon-btn">Homing Missiles</button>
+          </div>
+        </div>
+
+        <!-- Skins & Themes Customizer -->
         <div class="customizer-box">
           <div class="customizer-group">
-            <label>3D Skin:</label>
+            <label>Crystal Core:</label>
             <select id="skin-select">
               <option value="default">Default Blue Icosahedron</option>
               <option value="ruby">Ruby Octahedron</option>
@@ -58,7 +86,7 @@
             </select>
           </div>
           <div class="customizer-group">
-            <label>Theme:</label>
+            <label>Sector:</label>
             <select id="theme-select">
               <option value="cyan">Deep Space Cyan</option>
               <option value="nebula">Nebula Violet</option>
@@ -73,20 +101,20 @@
       <section class="shop-section">
         <!-- Tabs Navigation -->
         <div class="shop-tabs">
-          <button id="tab-upgrades" class="tab-btn active">Upgrades</button>
+          <button id="tab-upgrades" class="tab-btn active">Turrets</button>
           <button id="tab-tech" class="tab-btn">Tech Tree</button>
           <button id="tab-ascension" class="tab-btn prestige-tab">Ascension</button>
           <button id="tab-stats" class="tab-btn">Stats</button>
         </div>
 
-        <!-- Tab 1: Upgrades -->
+        <!-- Tab 1: Upgrades & Defense Turrets -->
         <div id="panel-upgrades" class="tab-panel active">
-          <h2>3D Upgrades & Satellites</h2>
+          <h2>Defensive Turrets & Upgrades</h2>
           <div class="upgrades-list">
             <div class="upgrade-card">
               <div class="upgrade-info">
-                <h3>Click Multiplier</h3>
-                <p>+1 point per click</p>
+                <h3>Laser Power Multiplier</h3>
+                <p>+1 shot damage</p>
                 <div class="upgrade-stats">Owned: <span id="count-multiplier">0</span></div>
               </div>
               <button id="buy-multiplier" class="buy-btn">
@@ -96,8 +124,8 @@
 
             <div class="upgrade-card">
               <div class="upgrade-info">
-                <h3>Orbiting Drone</h3>
-                <p>+1 CPS (Spawns 3D Drone)</p>
+                <h3>Auto Turret Drone</h3>
+                <p>+1 CPS (Spawns 3D Defense Drone)</p>
                 <div class="upgrade-stats">Owned: <span id="count-cursor">0</span></div>
               </div>
               <button id="buy-cursor" class="buy-btn">
@@ -107,8 +135,8 @@
 
             <div class="upgrade-card">
               <div class="upgrade-info">
-                <h3>Plasma Prism</h3>
-                <p>+5 CPS (Spawns 3D Prism)</p>
+                <h3>Plasma Cannon Battery</h3>
+                <p>+5 CPS (Spawns 3D Prism Battery)</p>
                 <div class="upgrade-stats">Owned: <span id="count-grandma">0</span></div>
               </div>
               <button id="buy-grandma" class="buy-btn">
@@ -118,8 +146,8 @@
 
             <div class="upgrade-card">
               <div class="upgrade-info">
-                <h3>Cosmic Core</h3>
-                <p>+25 CPS (Spawns 3D Core)</p>
+                <h3>Station Core Matrix</h3>
+                <p>+25 CPS (Spawns 3D Defense Core)</p>
                 <div class="upgrade-stats">Owned: <span id="count-factory">0</span></div>
               </div>
               <button id="buy-factory" class="buy-btn">
@@ -130,7 +158,7 @@
 
           <!-- Achievements Section -->
           <div class="achievements-section">
-            <h2>Achievements (<span id="achievements-count">0/6</span>)</h2>
+            <h2>Combat Badges (<span id="achievements-count">0/8</span>)</h2>
             <div id="achievements-list" class="achievements-list"></div>
           </div>
         </div>
@@ -142,7 +170,7 @@
             <div class="upgrade-card">
               <div class="upgrade-info">
                 <h3>Auto-Buyer Drone</h3>
-                <p>Automatically purchases the cheapest upgrade</p>
+                <p>Automatically purchases the cheapest turret upgrade</p>
                 <div class="upgrade-stats">Status: <span id="autobuyer-status">Locked</span></div>
               </div>
               <button id="buy-autobuyer" class="buy-btn">
@@ -153,7 +181,7 @@
             <div class="upgrade-card">
               <div class="upgrade-info">
                 <h3>Drone Overclocking</h3>
-                <p>Drones produce +50% CPS per Prism owned</p>
+                <p>Auto Turrets produce +50% CPS per Battery owned</p>
                 <div class="upgrade-stats">Status: <span id="synergy1-status">Locked</span></div>
               </div>
               <button id="buy-synergy1" class="buy-btn">
@@ -164,7 +192,7 @@
             <div class="upgrade-card">
               <div class="upgrade-info">
                 <h3>Prism Resonance</h3>
-                <p>Prisms boost Click Power by +5% of their total CPS</p>
+                <p>Batteries boost Laser Power by +5% of their total CPS</p>
                 <div class="upgrade-stats">Status: <span id="synergy2-status">Locked</span></div>
               </div>
               <button id="buy-synergy2" class="buy-btn">
@@ -178,8 +206,8 @@
         <div id="panel-ascension" class="tab-panel hidden">
           <h2>🌌 Cosmic Ascension</h2>
           <div class="ascension-box">
-            <p>Ascending resets your points and upgrades in exchange for <strong>Cosmic Shards</strong>.</p>
-            <p>Each Cosmic Shard provides a permanent <strong>+10% boost</strong> to all income across resets!</p>
+            <p>Ascending resets points and turrets for <strong>Cosmic Shards</strong>.</p>
+            <p>Each Cosmic Shard grants a permanent <strong>+10% boost</strong> to all weapon power and CPS across resets!</p>
 
             <div class="ascension-stats">
               <div>Earnable Shards now: <span id="ascension-shards-pending" class="highlight-gold">0</span></div>
@@ -196,11 +224,11 @@
         <div id="panel-stats" class="tab-panel hidden">
           <h2>📊 Analytics & Statistics</h2>
           <div class="detailed-stats-grid">
-            <div class="stat-card"><span>Total Clicks:</span> <strong id="stat-clicks-detailed">0</strong></div>
-            <div class="stat-card"><span>Total Earned:</span> <strong id="stat-earned-detailed">0</strong></div>
-            <div class="stat-card"><span>Clicks / Min (CPM):</span> <strong id="stat-cpm">0</strong></div>
-            <div class="stat-card"><span>Golden Crystals Clicked:</span> <strong id="stat-golden-count">0</strong></div>
-            <div class="stat-card"><span>Asteroids Destroyed:</span> <strong id="stat-asteroids-count">0</strong></div>
+            <div class="stat-card"><span>Total Shots Fired:</span> <strong id="stat-clicks-detailed">0</strong></div>
+            <div class="stat-card"><span>Total Bounty Earned:</span> <strong id="stat-earned-detailed">0</strong></div>
+            <div class="stat-card"><span>Shots / Min (SPM):</span> <strong id="stat-cpm">0</strong></div>
+            <div class="stat-card"><span>Enemies Destroyed:</span> <strong id="stat-golden-count">0</strong></div>
+            <div class="stat-card"><span>Bosses Defeated:</span> <strong id="stat-asteroids-count">0</strong></div>
             <div class="stat-card"><span>Ascensions Completed:</span> <strong id="stat-ascension-count">0</strong></div>
           </div>
         </div>
@@ -221,10 +249,10 @@
   <!-- Offline Earnings Modal -->
   <div id="modal-overlay" class="modal-overlay hidden">
     <div class="modal-card">
-      <h2>Welcome Back! 🚀</h2>
-      <p id="modal-desc">While you were away, your satellites generated income!</p>
+      <h2>Welcome Back Commander! 🚀</h2>
+      <p id="modal-desc">While you were away, your station turrets defended the sector!</p>
       <div id="modal-amount" class="modal-amount">+0</div>
-      <button id="modal-claim-btn" class="main-click-btn">Claim Points</button>
+      <button id="modal-claim-btn" class="main-click-btn">Claim Bounty</button>
     </div>
   </div>
 
