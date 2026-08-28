@@ -10,6 +10,7 @@ let gameState = {
   sfxMuted: false,
   inventory: {
     pistol: true,
+    smg: false,
     shotgun: false,
     rifle: false
   },
@@ -21,6 +22,7 @@ let gameState = {
   grenades: 2,
   ammo: {
     pistol: { clip: 12, maxClip: 12, reserve: Infinity },
+    smg: { clip: 30, maxClip: 30, reserve: 120 },
     shotgun: { clip: 6, maxClip: 6, reserve: 24 },
     rifle: { clip: 30, maxClip: 30, reserve: 90 }
   }
@@ -28,10 +30,15 @@ let gameState = {
 
 let isAimingDownSights = false;
 let isReloadingAnimation = 0; // 0 to 1
+let isSprinting = false;
+let isJumping = false;
+let playerYVel = 0;
+let isKnifeSwinging = 0; // 0 to 1
 
 // Weapon Stats Definition
 const weaponsDef = {
   pistol: { name: 'Service Pistol', damage: 25, speed: 0.5, color: 0x38bdf8, reloadTime: 1200, isAuto: false },
+  smg: { name: 'Tactical SMG', damage: 20, speed: 0.7, color: 0x10b981, reloadTime: 1200, isAuto: true, fireRateMs: 95 },
   shotgun: { name: 'Tactical Shotgun', damage: 18, speed: 0.45, color: 0xef4444, reloadTime: 2000, isAuto: false, pellets: 6 },
   rifle: { name: 'Assault Rifle', damage: 28, speed: 0.6, color: 0xfbbf24, reloadTime: 1500, isAuto: true, fireRateMs: 140 }
 };
@@ -189,6 +196,22 @@ function playSound(type) {
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
     osc.start(now);
     osc.stop(now + 0.25);
+  } else if (type === 'smg') {
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(900, now);
+    osc.frequency.exponentialRampToValueAtTime(200, now + 0.045);
+    gain.gain.setValueAtTime(0.22 * volMult, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.045);
+    osc.start(now);
+    osc.stop(now + 0.045);
+  } else if (type === 'knife') {
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(1200, now);
+    osc.frequency.exponentialRampToValueAtTime(400, now + 0.08);
+    gain.gain.setValueAtTime(0.25 * volMult, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+    osc.start(now);
+    osc.stop(now + 0.08);
   }
 }
 
@@ -265,6 +288,7 @@ let policeSirenLightRed, policeSirenLightBlue;
 let activeEnemies = [];
 let activeProjectiles = [];
 let barricadeObstacles = [];
+let obstacleMeshes = [];
 let enemiesToSpawnInRound = 0;
 let raycaster, mouse;
 let isReloading = false;
@@ -388,6 +412,8 @@ function updateFPSWeaponMesh() {
 
     if (type === 'pistol') {
       sightGroup.position.set(0, 0.1, -0.15);
+    } else if (type === 'smg') {
+      sightGroup.position.set(0, 0.09, -0.18);
     } else if (type === 'shotgun') {
       sightGroup.position.set(0, 0.1, -0.2);
     } else if (type === 'rifle') {
@@ -413,6 +439,29 @@ function updateFPSWeaponMesh() {
 
     group.position.set(0.24, -0.22, -0.45);
     muzzleFlashPoint.position.set(0.24, -0.16, -0.8);
+  } else if (type === 'smg') {
+    // Tactical SMG Model
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.32), darkMetalMat);
+    body.position.set(0, 0.03, -0.1);
+    group.add(body);
+
+    const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.35, 8), gunMetalMat);
+    barrel.rotation.x = Math.PI / 2;
+    barrel.position.set(0, 0.04, -0.3);
+    group.add(barrel);
+
+    const mag = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.22, 0.08), darkMetalMat);
+    mag.position.set(0, -0.1, -0.08);
+    mag.rotation.x = 0.15;
+    group.add(mag);
+
+    const grip = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.16, 0.08), gripMat);
+    grip.position.set(0, -0.08, 0.02);
+    grip.rotation.x = -0.25;
+    group.add(grip);
+
+    group.position.set(0.22, -0.2, -0.42);
+    muzzleFlashPoint.position.set(0.22, -0.14, -0.78);
   } else if (type === 'shotgun') {
     // Tactical Shotgun Model
     const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.65, 8), darkMetalMat);
@@ -471,7 +520,7 @@ function updateFPSWeaponMesh() {
 function updateCameraTransform() {
   if (!camera) return;
 
-  // Smoothly interpolate camera height between crouching and standing
+  // Smoothly interpolate camera height between crouching, standing, and jumping
   const targetOffset = isCrouched ? 0.55 : 1.2;
   cameraHeightOffset += (targetOffset - cameraHeightOffset) * 0.25;
 
@@ -681,6 +730,7 @@ function createProceduralCity() {
   cityGroup.add(ground);
 
   // Expanded Buildings Grid
+  obstacleMeshes = [];
   const buildingMat = new THREE.MeshStandardMaterial({
     map: buildingTex,
     metalness: 0.5,
@@ -696,6 +746,7 @@ function createProceduralCity() {
       const bMesh = new THREE.Mesh(bGeom, buildingMat);
       bMesh.position.set(x + (Math.random() - 0.5) * 0.4, -1.2 + h / 2, z + (Math.random() - 0.5) * 0.4);
       cityGroup.add(bMesh);
+      obstacleMeshes.push(bMesh);
     }
   }
 
@@ -717,6 +768,7 @@ function createProceduralCity() {
     const wallMesh = new THREE.Mesh(new THREE.BoxGeometry(cfg.w, cfg.h, cfg.d), barrierMat);
     wallMesh.position.set(cfg.x, cfg.y, cfg.z);
     cityGroup.add(wallMesh);
+    obstacleMeshes.push(wallMesh);
 
     // Stripe detail on barricade
     const stripeMat = new THREE.MeshBasicMaterial({ color: 0xeab308 });
@@ -736,6 +788,7 @@ function createProceduralCity() {
     car.add(body);
     car.position.set(i * 2.2, -0.85, -4.0);
     cityGroup.add(car);
+    obstacleMeshes.push(body);
 
     const carBox = new THREE.Box3().setFromObject(car);
     barricadeObstacles.push(carBox);
@@ -904,8 +957,19 @@ function animate() {
   if (isCrouched) baseSpread = Math.max(0, baseSpread - 6);
   updateDynamicCrosshair(baseSpread + weaponRecoil * 18);
 
-  // Update Camera position height smoothly during Crouch transitions
+  // Update Camera position height smoothly during Crouch & Jump transitions
   updateCameraTransform();
+
+  // Handle Jump Physics (Y Position & Velocity)
+  if (isJumping || playerPos.y > -0.9) {
+    playerPos.y += playerYVel;
+    playerYVel -= 0.015; // Gravity
+    if (playerPos.y <= -0.9) {
+      playerPos.y = -0.9;
+      playerYVel = 0;
+      isJumping = false;
+    }
+  }
 
   // Handle WASD Keyboard Movement (Relative to Camera Yaw Direction)
   if (!isPaused && !isGameExited) {
@@ -918,8 +982,10 @@ function animate() {
     if (keysPressed.KeyD || keysPressed.Keyd) moveX += 1;
 
     if (moveX !== 0 || moveZ !== 0) {
-      const activeSpeed = isCrouched ? moveSpeed * 0.5 : moveSpeed;
-      weaponBob += isCrouched ? 0.07 : 0.12;
+      let activeSpeed = isCrouched ? moveSpeed * 0.5 : moveSpeed;
+      if (isSprinting && !isCrouched) activeSpeed *= 1.7;
+
+      weaponBob += isCrouched ? 0.07 : (isSprinting ? 0.2 : 0.12);
       if (Math.sin(weaponBob) > 0.95) {
         playSound('footstep');
       }
@@ -954,8 +1020,13 @@ function animate() {
     }
   }
 
-  // Handle ADS Camera FOV Zoom
-  const targetFov = isAimingDownSights ? Math.min(38, baseFOV - 15) : baseFOV;
+  // Handle ADS Camera FOV Zoom & Sprint FOV Expansion
+  let targetFov = baseFOV;
+  if (isAimingDownSights) {
+    targetFov = Math.min(38, baseFOV - 15);
+  } else if (isSprinting && (keysPressed.KeyW || keysPressed.Keyw)) {
+    targetFov = baseFOV + 8;
+  }
   camera.fov += (targetFov - camera.fov) * 0.2;
   camera.updateProjectionMatrix();
 
@@ -1014,13 +1085,18 @@ function animate() {
       const playerVec = new THREE.Vector3(playerPos.x, -0.9, playerPos.z);
       enemy.mesh.lookAt(playerVec.x, enemy.mesh.position.y, playerVec.z);
 
-      // Shooter enemy shoots at player periodically
+      // Shooter enemy shoots at player periodically ONLY if line-of-sight is not blocked by walls/barricades
       if (enemy.type === 'shooter') {
         enemy.shootCooldown += 1;
         if (enemy.shootCooldown > 120) {
           enemy.shootCooldown = 0;
-          fireBulletTracerFromEnemy(enemy.mesh.position, camera.position, 0xef4444);
-          damagePlayer(8);
+          const enemyEyePos = enemy.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
+          const playerEyePos = camera.position.clone();
+
+          if (hasLineOfSight(enemyEyePos, playerEyePos)) {
+            fireBulletTracerFromEnemy(enemyEyePos, playerEyePos, 0xef4444);
+            damagePlayer(8);
+          }
         }
       }
 
@@ -1117,6 +1193,19 @@ function animate() {
 
   renderRadar();
   renderer.render(scene, camera);
+}
+
+function hasLineOfSight(startPos, endPos) {
+  if (!obstacleMeshes || obstacleMeshes.length === 0) return true;
+
+  const dir = endPos.clone().sub(startPos);
+  const distance = dir.length();
+  dir.normalize();
+
+  const losRaycaster = new THREE.Raycaster(startPos, dir, 0.05, distance - 0.1);
+  const intersects = losRaycaster.intersectObjects(obstacleMeshes, true);
+
+  return intersects.length === 0;
 }
 
 function updateDynamicCrosshair(spreadPixels) {
@@ -1300,17 +1389,25 @@ function handleShooterClick(event) {
       let hitEnemyIndex = -1;
       let hitBodyPart = 'torso';
 
+      // Check wall/obstacle intersections
+      const wallHits = pelletRaycaster.intersectObjects(obstacleMeshes, true);
+      let closestWallDist = wallHits.length > 0 ? wallHits[0].distance : Infinity;
+
       for (let i = activeEnemies.length - 1; i >= 0; i--) {
         const enemy = activeEnemies[i];
         const intersects = pelletRaycaster.intersectObject(enemy.mesh, true);
-        if (intersects.length > 0) {
+        if (intersects.length > 0 && intersects[0].distance < closestWallDist) {
           targetPoint = intersects[0].point;
           hitEnemyIndex = i;
+          closestWallDist = intersects[0].distance;
           if (intersects[0].object && intersects[0].object.userData.bodyPart) {
             hitBodyPart = intersects[0].object.userData.bodyPart;
           }
-          break;
         }
+      }
+
+      if (hitEnemyIndex === -1 && wallHits.length > 0) {
+        targetPoint = wallHits[0].point;
       }
 
       spawnSparkParticles(targetPoint, wpnDef.color);
@@ -1346,22 +1443,30 @@ function handleShooterClick(event) {
     playSound('shotgun');
     ejectShellCasing();
   } else {
-    // Single Bullet Firing (Pistol / Rifle)
+    // Single Bullet Firing (Pistol / SMG / Rifle)
     let targetPoint = raycaster.ray.at(30, new THREE.Vector3());
     let hitEnemyIndex = -1;
     let hitBodyPart = 'torso';
 
+    // Check wall/obstacle intersections
+    const wallHits = raycaster.intersectObjects(obstacleMeshes, true);
+    let closestWallDist = wallHits.length > 0 ? wallHits[0].distance : Infinity;
+
     for (let i = activeEnemies.length - 1; i >= 0; i--) {
       const enemy = activeEnemies[i];
       const intersects = raycaster.intersectObject(enemy.mesh, true);
-      if (intersects.length > 0) {
+      if (intersects.length > 0 && intersects[0].distance < closestWallDist) {
         targetPoint = intersects[0].point;
         hitEnemyIndex = i;
+        closestWallDist = intersects[0].distance;
         if (intersects[0].object && intersects[0].object.userData.bodyPart) {
           hitBodyPart = intersects[0].object.userData.bodyPart;
         }
-        break;
       }
+    }
+
+    if (hitEnemyIndex === -1 && wallHits.length > 0) {
+      targetPoint = wallHits[0].point;
     }
 
     spawnSparkParticles(targetPoint, wpnDef.color);
@@ -1821,6 +1926,29 @@ function setupEventListeners() {
       return;
     }
 
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+      if (!isGameExited) {
+        isSprinting = true;
+      }
+      return;
+    }
+
+    if (e.code === 'Space') {
+      if (!isGameExited && !isJumping && playerPos.y <= -0.89) {
+        isJumping = true;
+        playerYVel = 0.22;
+        playSound('footstep');
+      }
+      return;
+    }
+
+    if (e.code === 'KeyV' || e.code === 'Keyv' || e.key === 'v' || e.key === 'V') {
+      if (!isGameExited) {
+        performQuickMeleeKnife();
+      }
+      return;
+    }
+
     if (e.code === 'KeyM' || e.code === 'Keym' || e.key === 'm' || e.key === 'M') {
       if (!isGameExited) {
         toggleTacticalMap();
@@ -1865,6 +1993,9 @@ function setupEventListeners() {
   });
 
   window.addEventListener('keyup', (e) => {
+    if (e.code === 'ShiftLeft' || e.code === 'ShiftRight') {
+      isSprinting = false;
+    }
     if (keysPressed.hasOwnProperty(e.code)) {
       keysPressed[e.code] = false;
     }
@@ -1890,7 +2021,25 @@ function setupEventListeners() {
   startRoundBtn.addEventListener('click', startNextRound);
 
   // Buy Menu Purchases
+  const buyWpnSmgBtn = document.getElementById('buy-wpn-smg');
   buyWpnPistolBtn.addEventListener('click', () => equipWeapon('pistol'));
+
+  if (buyWpnSmgBtn) {
+    buyWpnSmgBtn.addEventListener('click', () => {
+      if (!gameState.inventory.smg) {
+        if (gameState.cash >= 800) {
+          gameState.cash -= 800;
+          gameState.inventory.smg = true;
+          playSound('buy');
+          equipWeapon('smg');
+        } else {
+          showToast('❌ Not enough cash for Tactical SMG!');
+        }
+      } else {
+        equipWeapon('smg');
+      }
+    });
+  }
 
   buyWpnShotgunBtn.addEventListener('click', () => {
     if (!gameState.inventory.shotgun) {
@@ -2189,12 +2338,72 @@ function updateUI() {
   startRoundBtn.disabled = gameState.isRoundActive;
 }
 
+function performQuickMeleeKnife() {
+  if (isKnifeSwinging > 0 || isPaused || isGameExited) return;
+
+  isKnifeSwinging = 1.0;
+  playSound('knife');
+  showToast('🔪 KNIFE SLASH!');
+
+  const rect = renderer.domElement.getBoundingClientRect();
+  const screenCenterX = rect.width / 2;
+  const screenCenterY = rect.height / 2;
+
+  // Melee range raycast check (close-quarters strike up to 2.2 meters)
+  const meleeRaycaster = new THREE.Raycaster();
+  meleeRaycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
+
+  for (let i = activeEnemies.length - 1; i >= 0; i--) {
+    const enemy = activeEnemies[i];
+    const intersects = meleeRaycaster.intersectObject(enemy.mesh, true);
+
+    if (intersects.length > 0 && intersects[0].distance <= 2.2) {
+      const appliedDamage = 50;
+      enemy.hp -= appliedDamage;
+      enemy.hitRecoil = 1.2;
+
+      spawnFloatingText(`🔪 KNIFE SLASH -${appliedDamage}`, screenCenterX, screenCenterY, true);
+      playSound('hit');
+
+      if (enemy.hp <= 0) {
+        scene.remove(enemy.mesh);
+        activeEnemies.splice(i, 1);
+        const reward = 100 + gameState.round * 20;
+        gameState.cash += reward;
+        spawnFloatingText(`+$${reward}`, screenCenterX, screenCenterY, false);
+        checkRoundStatus();
+      } else {
+        const hpRatio = Math.max(0, enemy.hp / enemy.maxHp);
+        enemy.hpBarFill.scale.x = hpRatio;
+        enemy.hpBarFill.position.x = -0.29 * (1 - hpRatio);
+      }
+      break;
+    }
+  }
+
+  setTimeout(() => { isKnifeSwinging = 0; }, 300);
+}
+
 function updateBuyMenuUI() {
   buyMenuCash.textContent = `$${gameState.cash}`;
 
   // Pistol Button
   buyWpnPistolBtn.textContent = gameState.equippedWeapon === 'pistol' ? 'EQUIPPED' : 'EQUIP';
   buyWpnPistolBtn.className = `buy-item-btn ${gameState.equippedWeapon === 'pistol' ? 'equipped' : ''}`;
+
+  // SMG Button
+  const buyWpnSmgBtn = document.getElementById('buy-wpn-smg');
+  if (buyWpnSmgBtn) {
+    if (!gameState.inventory.smg) {
+      buyWpnSmgBtn.textContent = 'BUY ($800)';
+      buyWpnSmgBtn.className = 'buy-item-btn';
+      buyWpnSmgBtn.disabled = gameState.cash < 800;
+    } else {
+      buyWpnSmgBtn.textContent = gameState.equippedWeapon === 'smg' ? 'EQUIPPED' : 'EQUIP';
+      buyWpnSmgBtn.className = `buy-item-btn ${gameState.equippedWeapon === 'smg' ? 'equipped' : ''}`;
+      buyWpnSmgBtn.disabled = false;
+    }
+  }
 
   // Shotgun Button
   if (!gameState.inventory.shotgun) {
