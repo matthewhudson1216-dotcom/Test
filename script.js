@@ -2118,6 +2118,33 @@ function animate() {
     policeSirenLightBlue.intensity = Math.cos(time) > 0 ? 4 : 0.5;
   }
 
+function disposeHierarchy(node) {
+  if (!node) return;
+  try {
+    if (node.geometry) {
+      node.geometry.dispose();
+    }
+    if (node.material) {
+      if (Array.isArray(node.material)) {
+        node.material.forEach(mat => {
+          if (mat && mat.map) mat.map.dispose();
+          if (mat) mat.dispose();
+        });
+      } else {
+        if (node.material.map) node.material.map.dispose();
+        node.material.dispose();
+      }
+    }
+    if (node.children && Array.isArray(node.children)) {
+      for (let i = node.children.length - 1; i >= 0; i--) {
+        disposeHierarchy(node.children[i]);
+      }
+    }
+  } catch (e) {
+    console.warn('disposeHierarchy warning:', e);
+  }
+}
+
   // Animate Projectiles
   for (let i = activeProjectiles.length - 1; i >= 0; i--) {
     const proj = activeProjectiles[i];
