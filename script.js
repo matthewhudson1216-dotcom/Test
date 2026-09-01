@@ -20,6 +20,8 @@ let gameState = {
   },
   equippedWeapon: 'pistol',
   grenades: 2,
+  smokeGrenades: 2,
+  claymores: 2,
   xp: 0,
   rank: 'CADET',
   camos: { black: true, urban: true, gold: false },
@@ -142,7 +144,15 @@ function playSound(type) {
 
   const now = audioCtx.currentTime;
 
-  if (type === 'heartbeat') {
+  if (type === 'slowmo') {
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(300, now);
+    osc.frequency.exponentialRampToValueAtTime(60, now + 0.5);
+    gain.gain.setValueAtTime(0.4 * volMult, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+    osc.start(now);
+    osc.stop(now + 0.5);
+  } else if (type === 'heartbeat') {
     osc.type = 'sine';
     osc.frequency.setValueAtTime(80, now);
     osc.frequency.exponentialRampToValueAtTime(40, now + 0.12);
@@ -304,12 +314,22 @@ const hudWeaponName = document.getElementById('hud-weapon-name');
 const ammoClip = document.getElementById('ammo-clip');
 const ammoReserve = document.getElementById('ammo-reserve');
 const hudGrenades = document.getElementById('hud-grenades');
+const hudSmoke = document.getElementById('hud-smoke');
+const hudClaymores = document.getElementById('hud-claymores');
+let activeClaymores = [];
 
 const canvasContainer = document.getElementById('canvas-container');
 const floatingContainer = document.getElementById('floating-text-container');
 const damageVignetteEl = document.getElementById('damage-vignette');
 const bloodSplatterEl = document.getElementById('blood-splatter-overlay');
 let heartbeatTimer = 0;
+let slowMoTimer = 0;
+
+function triggerSlowMotionEffect() {
+  slowMoTimer = 35;
+  playSound('slowmo');
+  showToast('🎬 CINEMATIC SLOW-MOTION MATRIX KILL!');
+}
 const hitmarkerEl = document.getElementById('hitmarker');
 
 const pauseHeaderBtn = document.getElementById('pause-btn');
@@ -361,6 +381,25 @@ let swatPartnerMesh = null;
 let swatPartnerTimer = 0;
 let enemiesToSpawnInRound = 0;
 let raycaster, mouse;
+let careerStats = JSON.parse(localStorage.getItem('cop_career_stats') || '{"highestRound": 1, "totalKills": 0, "headshots": 0, "hostages": 0}');
+
+function saveCareerStats() {
+  localStorage.setItem('cop_career_stats', JSON.stringify(careerStats));
+  updateLeaderboardUI();
+}
+
+function updateLeaderboardUI() {
+  const leadHighestRound = document.getElementById('lead-highest-round');
+  const leadTotalKills = document.getElementById('lead-total-kills');
+  const leadHeadshots = document.getElementById('lead-headshots');
+  const leadHostages = document.getElementById('lead-hostages');
+
+  if (leadHighestRound) leadHighestRound.textContent = `Round ${careerStats.highestRound}`;
+  if (leadTotalKills) leadTotalKills.textContent = careerStats.totalKills;
+  if (leadHeadshots) leadHeadshots.textContent = careerStats.headshots;
+  if (leadHostages) leadHostages.textContent = careerStats.hostages;
+}
+
 let roundStats = { shotsFired: 0, shotsHit: 0, headshots: 0, damageDealt: 0, cashEarned: 0 };
 const roundStatsModal = document.getElementById('round-stats-modal');
 const closeStatsBtn = document.getElementById('close-stats-btn');
@@ -417,6 +456,7 @@ function init() {
   init3D();
   setupEventListeners();
   updateUI();
+  updateLeaderboardUI();
   showToast('👋 Welcome Officer! Move with WASD, Aim & Click to Shoot.');
 }
 
@@ -1425,6 +1465,21 @@ function animate() {
     });
   }
 
+  // Check Proximity Claymore Tripwire Mines
+  for (let c = activeClaymores.length - 1; c >= 0; c--) {
+    const claymore = activeClaymores[c];
+    for (let e = 0; e < activeEnemies.length; e++) {
+      const enemy = activeEnemies[e];
+      if (enemy.mesh.position.distanceTo(claymore.pos) <= 1.8) {
+        triggerGrenadeExplosion(claymore.pos);
+        scene.remove(claymore.mesh);
+        activeClaymores.splice(c, 1);
+        showToast('💥 PROXIMITY CLAYMORE DETONATED!');
+        break;
+      }
+    }
+  }
+
   // Animate active Smoke Clouds
   for (let i = activeSmokeClouds.length - 1; i >= 0; i--) {
     const cloud = activeSmokeClouds[i];
@@ -1765,14 +1820,27 @@ function animate() {
 
           if (hasLineOfSight(enemyEyePos, playerEyePos)) {
             fireBulletTracerFromEnemy(enemyEyePos, playerEyePos, 0xef4444);
-            damagePlayer(8);
+            damagePlayer(12, enemyEyePos);
+            // Camera LMG Suppressive Fire Screen Shake
+            cameraRotation.pitch += (Math.random() - 0.5) * 0.04;
+            cameraRotation.yaw += (Math.random() - 0.5) * 0.04;
           }
         }
       }
 
+      // Shield Bull-Charge Dash Logic
+      if (enemy.type === 'shield') {
+        const distToPlayer = enemy.mesh.position.distanceTo(playerVec);
+        if (distToPlayer < 10.0 && Math.random() < 0.02 && !enemy.isCharging) {
+          enemy.isCharging = true;
+          showToast('🛡️ SHIELD BOSS BULL-CHARGE DASH!');
+        }
+      }
+
       // Move toward player position with barricade collision checking
+      const currentSpeed = enemy.isCharging ? enemy.speed * 2.8 : enemy.speed;
       const dir = playerVec.clone().sub(enemy.mesh.position).normalize();
-      const nextPos = enemy.mesh.position.clone().addScaledVector(dir, enemy.speed);
+      const nextPos = enemy.mesh.position.clone().addScaledVector(dir, currentSpeed);
 
       // Check if enemy next step hits a solid barricade
       let blockedByBarricade = false;
@@ -2152,6 +2220,9 @@ function handleShooterClick(event) {
           const reward = 100 + gameState.round * 20;
           gameState.cash += reward;
           addXP(50);
+          careerStats.totalKills += 1;
+          if (hitBodyPart === 'head') careerStats.headshots += 1;
+          saveCareerStats();
           spawnFloatingText(`+$${reward}`, screenCenterX, screenCenterY, false);
           checkRoundStatus();
         } else {
@@ -2232,6 +2303,9 @@ function handleShooterClick(event) {
         const reward = 100 + gameState.round * 20;
         gameState.cash += reward;
         addXP(50);
+        careerStats.totalKills += 1;
+        if (hitBodyPart === 'head') careerStats.headshots += 1;
+        saveCareerStats();
         spawnFloatingText(`+$${reward}`, screenCenterX, screenCenterY, false);
         checkRoundStatus();
       } else {
@@ -2576,6 +2650,7 @@ function showAfterActionReport(roundBonus) {
 
 function checkRoundStatus() {
   if (gameState.isRoundActive && activeEnemies.length === 0 && enemiesToSpawnInRound === 0) {
+    triggerSlowMotionEffect();
     gameState.isRoundActive = false;
     let roundBonus = 300 + gameState.round * 150;
 
@@ -2590,6 +2665,8 @@ function checkRoundStatus() {
 
     gameState.cash += roundBonus;
     gameState.round += 1;
+    careerStats.highestRound = Math.max(careerStats.highestRound, gameState.round);
+    saveCareerStats();
 
     showToast(`🎉 ROUND COMPLETED! Earned +$${roundBonus} Intermission Bonus!`);
     showAfterActionReport(roundBonus);
@@ -2746,6 +2823,38 @@ function setupEventListeners() {
   const camoUrbanBtn = document.getElementById('camo-urban-btn');
   const camoGoldBtn = document.getElementById('camo-gold-btn');
 
+  const buySmokeBtn = document.getElementById('buy-smoke-grenades');
+  if (buySmokeBtn) {
+    buySmokeBtn.addEventListener('click', () => {
+      if (gameState.cash >= 200) {
+        gameState.cash -= 200;
+        gameState.smokeGrenades += 2;
+        playSound('buy');
+        showToast('💨 Restocked +2 Smoke Grenades!');
+        updateUI();
+        updateBuyMenuUI();
+      } else {
+        showToast('❌ Not enough cash for Smoke Grenades ($200)!');
+      }
+    });
+  }
+
+  const buyClaymoreBtn = document.getElementById('buy-claymore-mines');
+  if (buyClaymoreBtn) {
+    buyClaymoreBtn.addEventListener('click', () => {
+      if (gameState.cash >= 300) {
+        gameState.cash -= 300;
+        gameState.claymores += 2;
+        playSound('buy');
+        showToast('💥 Restocked +2 Claymore Tripwire Mines!');
+        updateUI();
+        updateBuyMenuUI();
+      } else {
+        showToast('❌ Not enough cash for Claymore Mines ($300)!');
+      }
+    });
+  }
+
   const buyKevlarHelmetBtn = document.getElementById('buy-kevlar-helmet');
   if (buyKevlarHelmetBtn) {
     buyKevlarHelmetBtn.addEventListener('click', () => {
@@ -2884,6 +2993,20 @@ function setupEventListeners() {
     if (e.code === 'KeyB' || e.code === 'Keyb' || e.key === 'b' || e.key === 'B') {
       if (!isGameExited) {
         toggleBuyMenu();
+      }
+      return;
+    }
+
+    if (e.code === 'KeyJ' || e.code === 'Keyj' || e.key === 'j' || e.key === 'J') {
+      if (!isGameExited) {
+        throwSmokeGrenade();
+      }
+      return;
+    }
+
+    if (e.code === 'KeyX' || e.code === 'Keyx' || e.key === 'x' || e.key === 'X') {
+      if (!isGameExited) {
+        deployClaymore();
       }
       return;
     }
@@ -3258,6 +3381,82 @@ function equipWeapon(wpnKey) {
   }
 }
 
+function throwSmokeGrenade() {
+  if (gameState.smokeGrenades <= 0) {
+    showToast('⚠️ OUT OF SMOKE GRENADES! Buy in Armory.');
+    return;
+  }
+  if (!gameState.isRoundActive || isPaused || isGameExited) return;
+
+  gameState.smokeGrenades -= 1;
+  updateUI();
+  showToast('💨 SMOKE GRENADE DEPLOYED!');
+
+  const grenadeGeom = new THREE.SphereGeometry(0.12, 8, 8);
+  const grenadeMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, metalness: 0.8 });
+  const grenadeMesh = new THREE.Mesh(grenadeGeom, grenadeMat);
+
+  let startPos = camera.position.clone();
+  grenadeMesh.position.copy(startPos);
+  scene.add(grenadeMesh);
+
+  const euler = new THREE.Euler(cameraRotation.pitch, cameraRotation.yaw, 0, 'YXZ');
+  const dir = new THREE.Vector3(0, 0, -1).applyEuler(euler);
+
+  let throwVelocity = dir.multiplyScalar(0.3);
+  throwVelocity.y += 0.12;
+
+  let ticks = 0;
+  const throwInterval = setInterval(() => {
+    ticks += 1;
+    grenadeMesh.position.add(throwVelocity);
+    throwVelocity.y -= 0.015;
+
+    if (grenadeMesh.position.y <= -0.9 || ticks > 40) {
+      clearInterval(throwInterval);
+      deployEnemySmokeGrenade(grenadeMesh.position);
+      scene.remove(grenadeMesh);
+    }
+  }, 30);
+}
+
+function deployClaymore() {
+  if (gameState.claymores <= 0) {
+    showToast('⚠️ OUT OF CLAYMORE MINES! Buy in Armory.');
+    return;
+  }
+  if (!gameState.isRoundActive || isPaused || isGameExited) return;
+
+  gameState.claymores -= 1;
+  updateUI();
+
+  const claymoreGroup = new THREE.Group();
+
+  // Claymore Box Body
+  const boxGeom = new THREE.BoxGeometry(0.4, 0.25, 0.12);
+  const boxMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.8 });
+  const boxMesh = new THREE.Mesh(boxGeom, boxMat);
+  boxMesh.position.y = 0.12;
+  claymoreGroup.add(boxMesh);
+
+  // Red Laser Tripwire Beam
+  const laserGeom = new THREE.CylinderGeometry(0.005, 0.005, 2.5, 6);
+  const laserMat = new THREE.MeshBasicMaterial({ color: 0xef4444, transparent: true, opacity: 0.85, depthTest: false });
+  const laser = new THREE.Mesh(laserGeom, laserMat);
+  laser.rotation.x = Math.PI / 2;
+  laser.position.set(0, 0.12, -1.25);
+  claymoreGroup.add(laser);
+
+  const dropPos = camera.position.clone().add(new THREE.Vector3(0, 0, -0.8).applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraRotation.yaw));
+  dropPos.y = -0.9;
+  claymoreGroup.position.copy(dropPos);
+  claymoreGroup.rotation.y = cameraRotation.yaw;
+
+  scene.add(claymoreGroup);
+  activeClaymores.push({ mesh: claymoreGroup, pos: dropPos });
+  showToast('💥 CLAYMORE TRIPWIRE MINE PLANTED!');
+}
+
 function throwGrenade() {
   if (gameState.grenades <= 0) {
     showToast('⚠️ OUT OF GRENADES! Restock in Buy Menu.');
@@ -3359,6 +3558,8 @@ function updateUI() {
   ammoClip.textContent = gameState.ammo[wpnKey].clip;
   ammoReserve.textContent = gameState.ammo[wpnKey].reserve === Infinity ? '∞' : gameState.ammo[wpnKey].reserve;
   if (hudGrenades) hudGrenades.textContent = gameState.grenades;
+  if (hudSmoke) hudSmoke.textContent = gameState.smokeGrenades;
+  if (hudClaymores) hudClaymores.textContent = gameState.claymores;
 
   startRoundBtn.disabled = gameState.isRoundActive;
 }

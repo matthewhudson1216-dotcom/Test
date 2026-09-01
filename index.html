@@ -22,6 +22,16 @@
             <h3>📋 MISSION BRIEFING</h3>
             <p>Armed robber syndicates have seized key city sectors! As SWAT Command, neutralize armed threats, rescue civilian hostages, and protect precinct vaults across multiple combat environments.</p>
           </div>
+
+          <div class="briefing-box leaderboard-box">
+            <h3>🏆 CAREER LEADERBOARD & RECORDS</h3>
+            <div class="leaderboard-grid">
+              <div><span>Highest Round:</span> <strong id="lead-highest-round">Round 1</strong></div>
+              <div><span>Suspects Arrested:</span> <strong id="lead-total-kills">0</strong></div>
+              <div><span>Critical Headshots:</span> <strong id="lead-headshots">0</strong></div>
+              <div><span>Hostages Rescued:</span> <strong id="lead-hostages">0</strong></div>
+            </div>
+          </div>
           <div class="setting-item partner-toggle-item" style="margin-bottom: 1rem;">
             <label for="menu-partner-select" style="font-weight: 700; color: #38bdf8;">👥 SWAT Partner Mode:</label>
             <select id="menu-partner-select" class="map-select-dropdown">
@@ -79,7 +89,7 @@
           <div class="ammo-hud">
             <div class="weapon-name" id="hud-weapon-name">SERVICE PISTOL</div>
             <div class="ammo-count"><span id="ammo-clip">12</span> / <span id="ammo-reserve">∞</span></div>
-            <div class="grenade-count">💣 GRENADES: <span id="hud-grenades">2</span> [G]</div>
+            <div class="grenade-count">💣 FRAG: <span id="hud-grenades">2</span> [G] &nbsp;•&nbsp; 💨 SMOKE: <span id="hud-smoke">2</span> [J] &nbsp;•&nbsp; 💥 CLAYMORE: <span id="hud-claymores">2</span> [X]</div>
           </div>
         </div>
 
@@ -96,6 +106,8 @@
             <span class="key-badge">F</span> Flashlight &nbsp;•&nbsp;
             <span class="key-badge">N</span> NVG &nbsp;•&nbsp;
             <span class="key-badge">G</span> Grenade &nbsp;•&nbsp;
+            <span class="key-badge">J</span> Smoke &nbsp;•&nbsp;
+            <span class="key-badge">X</span> Claymore &nbsp;•&nbsp;
             <span class="key-badge">M</span> Map &nbsp;•&nbsp;
             <span class="key-badge">B</span> Buy &nbsp;•&nbsp;
             <span class="key-badge">ESC</span> Pause
@@ -245,7 +257,25 @@
 
           <div class="buy-item-card">
             <div class="buy-item-info">
-              <h4>Grenade Resupply Pack</h4>
+              <h4>💨 Smoke Grenades (+2)</h4>
+              <p>Deploy dense smoke clouds blinding enemy vision</p>
+              <span class="item-cost">$200</span>
+            </div>
+            <button id="buy-smoke-grenades" class="buy-item-btn">BUY ($200)</button>
+          </div>
+
+          <div class="buy-item-card">
+            <div class="buy-item-info">
+              <h4>💥 Claymore Mines (+2)</h4>
+              <p>Proximity mines with visible red laser tripwires</p>
+              <span class="item-cost">$300</span>
+            </div>
+            <button id="buy-claymore-mines" class="buy-item-btn">BUY ($300)</button>
+          </div>
+
+          <div class="buy-item-card">
+            <div class="buy-item-info">
+              <h4>Restock Frag Grenades</h4>
               <p>Restores +2 Fragmentation Grenades</p>
               <span class="item-cost">$200</span>
             </div>
