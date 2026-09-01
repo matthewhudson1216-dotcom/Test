@@ -2388,6 +2388,7 @@ function handleShooterClick(event) {
 
       if (hitEnemyIndex === -1 && wallHits.length > 0) {
         targetPoint = wallHits[0].point;
+        checkDestructibleHit(wallHits[0].object, wpnDef.damage);
       }
 
       spawnSparkParticles(targetPoint, wpnDef.color);
@@ -2457,6 +2458,7 @@ function handleShooterClick(event) {
 
     if (hitEnemyIndex === -1 && wallHits.length > 0) {
       targetPoint = wallHits[0].point;
+      checkDestructibleHit(wallHits[0].object, wpnDef.damage);
     }
 
     spawnSparkParticles(targetPoint, wpnDef.color);
