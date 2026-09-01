@@ -1843,19 +1843,27 @@ function animate() {
   if (swatPartnerMesh && gameState.isRoundActive && gameState.swatPartnerMode !== 'solo') {
     swatPartnerTimer++;
 
-    // Target closest enemy in Line-of-Sight
-    const swatEye = swatPartnerMesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
-    let closestEnemy = null;
-    let closestDist = Infinity;
+    // Target closest enemy in Line-of-Sight (throttled every 15 frames)
+    if (swatPartnerTimer % 15 === 0 || !swatPartnerMesh.targetEnemy) {
+      const swatEye = swatPartnerMesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
+      let foundEnemy = null;
+      let foundDist = Infinity;
 
-    activeEnemies.forEach(enemy => {
-      const enemyEye = enemy.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
-      const d = swatPartnerMesh.position.distanceTo(enemy.mesh.position);
-      if (d < closestDist && hasLineOfSight(swatEye, enemyEye)) {
-        closestDist = d;
-        closestEnemy = enemy;
-      }
-    });
+      activeEnemies.forEach(enemy => {
+        const enemyEye = enemy.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
+        const d = swatPartnerMesh.position.distanceTo(enemy.mesh.position);
+        if (d < foundDist && hasLineOfSight(swatEye, enemyEye)) {
+          foundDist = d;
+          foundEnemy = enemy;
+        }
+      });
+      swatPartnerMesh.targetEnemy = foundEnemy;
+      swatPartnerMesh.targetDist = foundDist;
+    }
+
+    const closestEnemy = (swatPartnerMesh.targetEnemy && activeEnemies.includes(swatPartnerMesh.targetEnemy)) ? swatPartnerMesh.targetEnemy : null;
+    const closestDist = swatPartnerMesh.targetDist || Infinity;
+    const swatEye = swatPartnerMesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
 
     // Independent Tactical Navigation Movement
     let swatMoveTarget = null;
@@ -2132,14 +2140,19 @@ function animate() {
       const playerVec = new THREE.Vector3(playerPos.x, -0.9, playerPos.z);
       enemy.mesh.lookAt(playerVec.x, enemy.mesh.position.y, playerVec.z);
 
-      // Enemy Hearing & Perception Logic: Investigate sound origin or player's last known location when visual LOS is lost
-      const enemyEyePos = enemy.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
-      const playerEyePos = camera.position.clone();
-      const canSeePlayer = hasLineOfSight(enemyEyePos, playerEyePos);
+      // Enemy Hearing & Perception Logic: Throttled LOS check to prevent main-thread freeze
+      if (!enemy.losFrameCounter) enemy.losFrameCounter = Math.floor(Math.random() * 10);
+      enemy.losFrameCounter++;
 
-      if (canSeePlayer) {
-        enemy.lastKnownPlayerPos = playerVec.clone();
+      if (enemy.losFrameCounter % 10 === 0 || enemy.canSeePlayer === undefined) {
+        const enemyEyePos = enemy.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
+        const playerEyePos = camera.position.clone();
+        enemy.canSeePlayer = hasLineOfSight(enemyEyePos, playerEyePos);
+        if (enemy.canSeePlayer) {
+          enemy.lastKnownPlayerPos = playerVec.clone();
+        }
       }
+      const canSeePlayer = enemy.canSeePlayer;
 
       // Shooter enemy shoots at player periodically ONLY if line-of-sight is not blocked by walls/barricades/smoke
       if (enemy.type === 'shooter') {
@@ -2230,8 +2243,9 @@ function animate() {
         enemy.hpBarGroup.quaternion.copy(camera.quaternion);
       }
 
-      // Check proximity for Melee Attack Animation & Damage Loop
-      const dist = enemy.mesh.position.distanceTo(copPlayerMesh.position);
+      // Check proximity for Melee Attack Animation & Damage Loop safely
+      const targetPos = (copPlayerMesh && copPlayerMesh.position) ? copPlayerMesh.position : new THREE.Vector3(playerPos.x, playerPos.y, playerPos.z);
+      const dist = enemy.mesh.position.distanceTo(targetPos);
       if (dist < 1.1) {
         // Close-quarters Melee Combat State (Attacking Animation)
         enemy.meleeCooldown += 1;
@@ -2326,10 +2340,11 @@ function hasLineOfSight(startPos, endPos) {
 
   const dir = endPos.clone().sub(startPos);
   const distance = dir.length();
+  if (distance < 0.1) return true;
   dir.normalize();
 
   const losRaycaster = new THREE.Raycaster(startPos, dir, 0.05, distance - 0.1);
-  const intersects = losRaycaster.intersectObjects(obstacleMeshes, true);
+  const intersects = losRaycaster.intersectObjects(obstacleMeshes, false);
 
   return intersects.length === 0;
 }
