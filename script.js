@@ -1,3 +1,13 @@
+const MissionState = {
+  BRIEFING: 'BRIEFING',
+  INSERTION: 'INSERTION',
+  CONTACT: 'CONTACT',
+  PRIMARY_OBJECTIVE: 'PRIMARY_OBJECTIVE',
+  ESCALATION: 'ESCALATION',
+  EXTRACTION: 'EXTRACTION',
+  AFTER_ACTION_REPORT: 'AFTER_ACTION_REPORT'
+};
+
 function createInitialGameState() {
   return {
     cash: 800,
@@ -7,6 +17,10 @@ function createInitialGameState() {
     maxArmor: 100,
     round: 1,
     isRoundActive: false,
+    missionState: MissionState.BRIEFING,
+    objectiveProgress: 0,
+    objectiveTarget: 100,
+    activeObjectiveTitle: 'NEUTRALIZE ARMED SUSPECTS',
     sfxMuted: false,
     xp: 0,
     rank: '🎖️ CADET',
@@ -42,13 +56,75 @@ let knifeAnimFrame = 0;
 let knifeAnimDuration = 38;
 let knifeDamageTriggered = false;
 
-// Weapon Stats Definition
+// Structured Weapon Stats Definition & Handling Characteristics
 const weaponsDef = {
-  pistol: { name: 'Service Pistol', damage: 25, speed: 0.5, color: 0x38bdf8, reloadTime: 1200, isAuto: false },
-  smg: { name: 'Tactical SMG', damage: 20, speed: 0.7, color: 0x10b981, reloadTime: 1200, isAuto: true, fireRateMs: 95 },
-  shotgun: { name: 'Tactical Shotgun', damage: 18, speed: 0.45, color: 0xef4444, reloadTime: 2000, isAuto: false, pellets: 6 },
-  rifle: { name: 'Assault Rifle', damage: 28, speed: 0.6, color: 0xfbbf24, reloadTime: 1500, isAuto: true, fireRateMs: 140 }
+  pistol: {
+    name: 'Service Pistol',
+    damage: 25,
+    speed: 0.5,
+    color: 0x38bdf8,
+    reloadTime: 1100,
+    isAuto: false,
+    hipSpread: 8,
+    adsSpread: 2,
+    recoilKick: 0.6,
+    recoilRecovery: 0.85,
+    effectiveRange: 20,
+    movementPenalty: 1.0,
+    adsZoomFov: 48
+  },
+  smg: {
+    name: 'Tactical SMG',
+    damage: 20,
+    speed: 0.7,
+    color: 0x10b981,
+    reloadTime: 1200,
+    isAuto: true,
+    fireRateMs: 90,
+    hipSpread: 14,
+    adsSpread: 4,
+    recoilKick: 0.8,
+    recoilRecovery: 0.82,
+    effectiveRange: 16,
+    movementPenalty: 0.95,
+    adsZoomFov: 45
+  },
+  shotgun: {
+    name: 'Tactical Shotgun',
+    damage: 18,
+    speed: 0.45,
+    color: 0xef4444,
+    reloadTime: 2100,
+    isAuto: false,
+    pellets: 8,
+    hipSpread: 22,
+    adsSpread: 10,
+    recoilKick: 1.8,
+    recoilRecovery: 0.75,
+    effectiveRange: 10,
+    movementPenalty: 0.85,
+    adsZoomFov: 52
+  },
+  rifle: {
+    name: 'Assault Rifle',
+    damage: 28,
+    speed: 0.6,
+    color: 0xfbbf24,
+    reloadTime: 1500,
+    isAuto: true,
+    fireRateMs: 130,
+    hipSpread: 16,
+    adsSpread: 3,
+    recoilKick: 1.2,
+    recoilRecovery: 0.8,
+    effectiveRange: 32,
+    movementPenalty: 0.88,
+    adsZoomFov: 38
+  }
 };
+
+let playerVelocity = { x: 0, z: 0 };
+let colorBlindMode = 'none';
 
 let autoFireInterval = null;
 let isPointerDown = false;
@@ -816,15 +892,30 @@ function updateFPSWeaponMesh() {
 }
 
 function movePlayer(moveX, moveZ, dt = 0.016) {
-  let activeSpeed = isCrouched ? 3.5 : 6.0;
-  if (isSprinting && !isCrouched) activeSpeed *= 1.6;
+  const currentWpn = weaponsDef[gameState.equippedWeapon];
+  const wpnPenalty = currentWpn ? currentWpn.movementPenalty : 1.0;
 
-  weaponBob += (isCrouched ? 3.5 : (isSprinting ? 10.0 : 6.0)) * dt;
-  if (Math.sin(weaponBob) > 0.95) {
-    playSound('footstep');
+  let baseSpeed = isCrouched ? 3.2 : 5.8;
+  if (isSprinting && !isCrouched) baseSpeed *= 1.65;
+  if (isAimingDownSights) baseSpeed *= 0.6;
+  baseSpeed *= wpnPenalty;
+
+  // Acceleration and Deceleration Smoothing
+  const targetVelX = moveX * baseSpeed;
+  const targetVelZ = moveZ * baseSpeed;
+
+  playerVelocity.x += (targetVelX - playerVelocity.x) * Math.min(1.0, dt * 12.0);
+  playerVelocity.z += (targetVelZ - playerVelocity.z) * Math.min(1.0, dt * 12.0);
+
+  const isMoving = Math.abs(playerVelocity.x) > 0.1 || Math.abs(playerVelocity.z) > 0.1;
+  if (isMoving) {
+    weaponBob += (isCrouched ? 4.0 : (isSprinting ? 11.0 : 7.0)) * dt;
+    if (Math.sin(weaponBob) > 0.96) {
+      playSound('footstep');
+    }
   }
 
-  const moveVec = new THREE.Vector3(moveX, 0, moveZ).normalize().multiplyScalar(activeSpeed * dt);
+  const moveVec = new THREE.Vector3(playerVelocity.x, 0, playerVelocity.z).multiplyScalar(dt);
   moveVec.applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraRotation.yaw);
 
   let targetX = Math.min(Math.max(-12.0, playerPos.x + moveVec.x), 12.0);
@@ -1500,6 +1591,24 @@ let lastGamepadButtonState = {};
 function updateGamepadInput() {
   if (!navigator.getGamepads) return;
   const gamepads = navigator.getGamepads();
+  let gamepadConnected = false;
+  const promptBar = document.getElementById('controller-prompt-bar');
+
+  if (gamepads) {
+    for (let i = 0; i < gamepads.length; i++) {
+      const gp = gamepads[i];
+      if (gp && gp.connected) {
+        gamepadConnected = true;
+        break;
+      }
+    }
+  }
+
+  if (promptBar) {
+    if (gamepadConnected) promptBar.classList.remove('hidden');
+    else promptBar.classList.add('hidden');
+  }
+
   if (!gamepads) return;
 
   for (let i = 0; i < gamepads.length; i++) {
@@ -1982,20 +2091,28 @@ function animate() {
       const playerVec = new THREE.Vector3(playerPos.x, -0.9, playerPos.z);
       enemy.mesh.lookAt(playerVec.x, enemy.mesh.position.y, playerVec.z);
 
-      // Shooter enemy shoots at player periodically ONLY if line-of-sight is not blocked by walls/barricades
+      // Enemy Hearing & Perception Logic: Investigate sound origin or player's last known location when visual LOS is lost
+      const enemyEyePos = enemy.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
+      const playerEyePos = camera.position.clone();
+      const canSeePlayer = hasLineOfSight(enemyEyePos, playerEyePos);
+
+      if (canSeePlayer) {
+        enemy.lastKnownPlayerPos = playerVec.clone();
+      }
+
+      // Shooter enemy shoots at player periodically ONLY if line-of-sight is not blocked by walls/barricades/smoke
       if (enemy.type === 'shooter') {
         enemy.shootCooldown += 1;
-        if (enemy.shootCooldown > 120) {
+        if (enemy.shootCooldown > 110) {
           enemy.shootCooldown = 0;
-          const enemyEyePos = enemy.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
-          const playerEyePos = camera.position.clone();
-
-          if (hasLineOfSight(enemyEyePos, playerEyePos)) {
+          if (canSeePlayer) {
             fireBulletTracerFromEnemy(enemyEyePos, playerEyePos, 0xef4444);
             damagePlayer(12, enemyEyePos);
-            // Camera LMG Suppressive Fire Screen Shake
             cameraRotation.pitch += (Math.random() - 0.5) * 0.04;
             cameraRotation.yaw += (Math.random() - 0.5) * 0.04;
+          } else if (enemy.lastKnownPlayerPos) {
+            // Suppressive fire toward last known player location
+            fireBulletTracerFromEnemy(enemyEyePos, enemy.lastKnownPlayerPos.clone().add(new THREE.Vector3(0, 1.2, 0)), 0xef4444);
           }
         }
       }
@@ -3480,6 +3597,18 @@ function setupEventListeners() {
     sfxToggleBtn.textContent = gameState.sfxMuted ? '🔇 SFX Off' : '🔊 SFX On';
   });
 
+  const settingColorBlind = document.getElementById('setting-colorblind');
+  if (settingColorBlind) {
+    settingColorBlind.addEventListener('change', (e) => {
+      colorBlindMode = e.target.value;
+      document.body.classList.remove('protanopia', 'deuteranopia', 'tritanopia');
+      if (colorBlindMode !== 'none') {
+        document.body.classList.add(colorBlindMode);
+      }
+      showToast(`👁️ COLOR-BLIND MODE: ${e.target.options[e.target.selectedIndex].text}`);
+    });
+  }
+
   // Settings Sliders Event Listeners
   if (settingSens) {
     const initSensVal = localStorage.getItem('cop_sens') || '1.0';
@@ -3745,14 +3874,22 @@ function triggerGrenadeExplosion(explosionPos) {
 }
 
 function updateUI() {
-  roundDisplay.textContent = `ROUND ${gameState.round}`;
-  cashDisplay.textContent = `💵 CASH: $${gameState.cash}`;
+  if (roundDisplay) roundDisplay.textContent = `WAVE ${gameState.round}`;
+  if (cashDisplay) cashDisplay.textContent = `💵 $${gameState.cash}`;
 
   healthText.textContent = `${gameState.health} / ${gameState.maxHealth}`;
   healthBarFill.style.width = `${(gameState.health / gameState.maxHealth) * 100}%`;
 
   armorText.textContent = `${gameState.armor} / ${gameState.maxArmor}`;
   armorBarFill.style.width = `${(gameState.armor / gameState.maxArmor) * 100}%`;
+
+  const hudObjText = document.getElementById('hud-objective-text');
+  const hudObjFill = document.getElementById('hud-objective-progress-fill');
+  if (hudObjText) hudObjText.textContent = gameState.activeObjectiveTitle;
+  if (hudObjFill) {
+    const pct = Math.min(100, Math.max(0, (gameState.objectiveProgress / Math.max(1, gameState.objectiveTarget)) * 100));
+    hudObjFill.style.width = `${pct}%`;
+  }
 
   const wpnKey = gameState.equippedWeapon;
   hudWeaponName.textContent = weaponsDef[wpnKey].name.toUpperCase();

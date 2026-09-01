@@ -58,8 +58,10 @@
           <option value="range">🎯 Tactical Shooting Range</option>
         </select>
         <span id="rank-badge" class="rank-badge">🎖️ CADET</span>
-        <span id="round-display" class="round-badge">ROUND 1</span>
-        <span id="cash-display" class="cash-badge">💵 CASH: $800</span>
+        <div class="secondary-economy-badge">
+          <span id="round-display" class="round-badge-small">WAVE 1</span>
+          <span id="cash-display" class="cash-badge-small">💵 $800</span>
+        </div>
         <button id="pause-btn" class="icon-btn danger-icon-btn" title="Pause / Exit Game">⏸️ Pause [ESC]</button>
         <button id="sfx-toggle" class="icon-btn" title="Toggle Sound Effects">🔊 SFX On</button>
       </div>
@@ -68,25 +70,32 @@
     <main class="game-layout full-viewport-layout">
       <!-- 3D City Viewport & Player Tactical HUD -->
       <section class="shooter-section">
-        <div class="hud-top-bar">
-          <!-- Player Health & Armor HUD Bars -->
-          <div class="hud-bars-container">
-            <div class="hud-bar-group">
-              <div class="hud-label">HEALTH: <span id="health-text">100 / 100</span></div>
-              <div class="hud-bar-bg">
+        <div class="hud-top-bar primary-combat-hud">
+          <!-- Dominant Player Health & Armor HUD Bars -->
+          <div class="hud-bars-container dominant-bars">
+            <div class="hud-bar-group combat-bar">
+              <div class="hud-label">HEALTH <span id="health-text" class="stat-val">100 / 100</span></div>
+              <div class="hud-bar-bg primary-bg">
                 <div id="health-bar-fill" class="hud-bar-fill health-fill" style="width: 100%;"></div>
               </div>
             </div>
-            <div class="hud-bar-group">
-              <div class="hud-label">ARMOUR: <span id="armor-text">0 / 100</span></div>
-              <div class="hud-bar-bg">
+            <div class="hud-bar-group combat-bar">
+              <div class="hud-label">ARMOUR <span id="armor-text" class="stat-val">0 / 100</span></div>
+              <div class="hud-bar-bg primary-bg">
                 <div id="armor-bar-fill" class="hud-bar-fill armor-fill" style="width: 0%;"></div>
               </div>
             </div>
           </div>
 
-          <!-- Ammo & Weapon HUD -->
-          <div class="ammo-hud">
+          <!-- Central Active Objective Tracker -->
+          <div id="hud-objective-tracker" class="hud-objective-tracker">
+            <div class="objective-header">📋 ACTIVE OBJECTIVE</div>
+            <div id="hud-objective-text" class="objective-body">NEUTRALIZE ALL ARMED SUSPECTS</div>
+            <div id="hud-objective-progress-bar" class="objective-progress-bar"><div id="hud-objective-progress-fill" style="width: 0%;"></div></div>
+          </div>
+
+          <!-- Ammo & Weapon Primary HUD -->
+          <div class="ammo-hud primary-ammo-hud">
             <div class="weapon-name" id="hud-weapon-name">SERVICE PISTOL</div>
             <div class="ammo-count"><span id="ammo-clip">12</span> / <span id="ammo-reserve">∞</span></div>
             <div class="grenade-count">💣 FRAG: <span id="hud-grenades">2</span> [G] &nbsp;•&nbsp; 💨 SMOKE: <span id="hud-smoke">2</span> [J] &nbsp;•&nbsp; 💥 CLAYMORE: <span id="hud-claymores">2</span> [X]</div>
@@ -114,9 +123,16 @@
           </div>
           <div id="floating-text-container" class="floating-text-container"></div>
           <div id="damage-vignette" class="damage-vignette hidden"></div>
+          <div id="armor-break-overlay" class="armor-break-overlay hidden"></div>
+          <div id="threat-indicator-left" class="threat-indicator left hidden"></div>
+          <div id="threat-indicator-right" class="threat-indicator right hidden"></div>
+          <div id="threat-indicator-top" class="threat-indicator top hidden"></div>
           <div id="blood-splatter-overlay" class="blood-splatter-overlay hidden"></div>
           <div id="nvg-overlay" class="nvg-overlay hidden"></div>
           <div id="hitmarker" class="hitmarker hidden"></div>
+          <div id="controller-prompt-bar" class="controller-prompt-bar hidden">
+            <span>🎮 [LT] ADS</span> <span>[RT] FIRE</span> <span>[A] JUMP</span> <span>[B] CROUCH</span> <span>[X] RELOAD</span> <span>[Y] MELEE</span>
+          </div>
           <div class="crosshair" id="dynamic-crosshair">
             <div class="ch-line top"></div>
             <div class="ch-line bottom"></div>
@@ -326,6 +342,15 @@
           <select id="setting-partner-select" class="map-select-dropdown">
             <option value="squad">👥 AI Squadmate Partner</option>
             <option value="solo">👤 Solo Duty (No AI)</option>
+          </select>
+        </div>
+        <div class="setting-item">
+          <label for="setting-colorblind">Color-Blind Vision Mode:</label>
+          <select id="setting-colorblind" class="map-select-dropdown">
+            <option value="none">Normal Vision</option>
+            <option value="protanopia">Protanopia (Red-Blind)</option>
+            <option value="deuteranopia">Deuteranopia (Green-Blind)</option>
+            <option value="tritanopia">Tritanopia (Blue-Blind)</option>
           </select>
         </div>
         <div class="setting-item">

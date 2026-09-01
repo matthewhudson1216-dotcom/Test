@@ -11,6 +11,9 @@ function createInitialGameState() {
     maxArmor: 100,
     round: 1,
     isRoundActive: false,
+    missionState: 'BRIEFING',
+    objectiveProgress: 0,
+    objectiveTarget: 100,
     sfxMuted: false,
     xp: 0,
     rank: '🎖️ CADET',
@@ -85,6 +88,7 @@ const state1 = createInitialGameState();
 assert.strictEqual(state1.cash, 800);
 assert.strictEqual(state1.smokeGrenades, 2);
 assert.strictEqual(state1.claymores, 2);
+assert.strictEqual(state1.missionState, 'BRIEFING');
 assert.strictEqual(state1.inventory.pistol, true);
 assert.strictEqual(state1.inventory.smg, false);
 console.log('✔ Test 1 Passed: createInitialGameState() contains all required properties.');
