@@ -268,8 +268,8 @@ header h1 {
 
 .radar-canvas {
   position: absolute !important;
-  top: 12px !important;
-  right: 12px !important;
+  bottom: 20px !important;
+  left: 20px !important;
   width: 120px !important;
   height: 120px !important;
   background: rgba(2, 6, 23, 0.75);
@@ -287,23 +287,21 @@ header h1 {
 }
 
 .controls-hint-overlay {
-  position: absolute;
-  top: 10px;
-  left: 50%;
-  transform: translateX(-50%);
   background: rgba(15, 23, 42, 0.85);
-  backdrop-filter: blur(6px);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  padding: 5px 16px;
-  border-radius: 20px;
+  padding: 8px 12px;
+  border-radius: 10px;
   font-size: 0.72rem;
   color: #cbd5e1;
-  pointer-events: none;
-  z-index: 5;
-  white-space: nowrap;
-  max-width: 95%;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  margin-bottom: 1rem;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.controls-hint-overlay.menu-static {
+  position: static;
+  transform: none;
+  width: 100%;
 }
 
 .key-badge {
@@ -316,66 +314,14 @@ header h1 {
   margin: 0 2px;
 }
 
-.crosshair {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 32px;
-  height: 32px;
-  transform: translate(-50%, -50%);
+.hud-overlay-canvas {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
   pointer-events: none;
   z-index: 10;
-}
-
-.ch-line {
-  position: absolute;
-  background-color: rgba(56, 189, 248, 0.9);
-  box-shadow: 0 0 4px rgba(56, 189, 248, 0.8);
-  transition: transform 0.05s ease-out;
-}
-
-.ch-line.top {
-  top: 0;
-  left: 50%;
-  width: 2px;
-  height: 8px;
-  transform: translateX(-50%);
-}
-
-.ch-line.bottom {
-  bottom: 0;
-  left: 50%;
-  width: 2px;
-  height: 8px;
-  transform: translateX(-50%);
-}
-
-.ch-line.left {
-  left: 0;
-  top: 50%;
-  width: 8px;
-  height: 2px;
-  transform: translateY(-50%);
-}
-
-.ch-line.right {
-  right: 0;
-  top: 50%;
-  width: 8px;
-  height: 2px;
-  transform: translateY(-50%);
-}
-
-.ch-dot {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 3px;
-  height: 3px;
-  background-color: #38bdf8;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 0 4px #38bdf8;
 }
 
 /* Damage Vignette Red Screen Flash & Threat Indicators */

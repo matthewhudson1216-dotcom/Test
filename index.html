@@ -104,23 +104,6 @@
 
         <!-- 3D City Viewport with Target Crosshair -->
         <div id="canvas-container" class="canvas-container shooter-canvas">
-          <div class="controls-hint-overlay">
-            <span class="key-badge">MOUSE</span> Look &nbsp;•&nbsp;
-            <span class="key-badge">WASD</span> Move &nbsp;•&nbsp;
-            <span class="key-badge">CLICK</span> Fire &nbsp;•&nbsp;
-            <span class="key-badge">SHIFT</span> Sprint / Hold Breath &nbsp;•&nbsp;
-            <span class="key-badge">SPACE</span> Jump &nbsp;•&nbsp;
-            <span class="key-badge">V</span> Melee &nbsp;•&nbsp;
-            <span class="key-badge">C</span> Crouch &nbsp;•&nbsp;
-            <span class="key-badge">F</span> Flashlight &nbsp;•&nbsp;
-            <span class="key-badge">N</span> NVG &nbsp;•&nbsp;
-            <span class="key-badge">G</span> Grenade &nbsp;•&nbsp;
-            <span class="key-badge">J</span> Smoke &nbsp;•&nbsp;
-            <span class="key-badge">X</span> Claymore &nbsp;•&nbsp;
-            <span class="key-badge">M</span> Map &nbsp;•&nbsp;
-            <span class="key-badge">B</span> Buy &nbsp;•&nbsp;
-            <span class="key-badge">ESC</span> Pause
-          </div>
           <div id="floating-text-container" class="floating-text-container"></div>
           <div id="damage-vignette" class="damage-vignette hidden"></div>
           <div id="armor-break-overlay" class="armor-break-overlay hidden"></div>
@@ -133,13 +116,8 @@
           <div id="controller-prompt-bar" class="controller-prompt-bar hidden">
             <span>🎮 [LT] ADS</span> <span>[RT] FIRE</span> <span>[A] JUMP</span> <span>[B] CROUCH</span> <span>[X] RELOAD</span> <span>[Y] MELEE</span>
           </div>
-          <div class="crosshair" id="dynamic-crosshair">
-            <div class="ch-line top"></div>
-            <div class="ch-line bottom"></div>
-            <div class="ch-line left"></div>
-            <div class="ch-line right"></div>
-            <div class="ch-dot"></div>
-          </div>
+          <!-- 2D HUD Overlay Canvas for zero-thrash crosshair & hitmarker rendering -->
+          <canvas id="hud-overlay-canvas" class="hud-overlay-canvas"></canvas>
           <!-- 2D Radar Overlay -->
           <canvas id="radar-canvas" class="radar-canvas" width="120" height="120"></canvas>
         </div>
@@ -337,6 +315,23 @@
       <!-- Settings Controls -->
       <div class="settings-panel">
         <h3>⚙️ TACTICAL SETTINGS</h3>
+        <div class="controls-hint-overlay menu-static">
+          <span class="key-badge">MOUSE</span> Look &nbsp;•&nbsp;
+          <span class="key-badge">WASD</span> Move &nbsp;•&nbsp;
+          <span class="key-badge">CLICK</span> Fire &nbsp;•&nbsp;
+          <span class="key-badge">SHIFT</span> Sprint / Hold Breath &nbsp;•&nbsp;
+          <span class="key-badge">SPACE</span> Jump &nbsp;•&nbsp;
+          <span class="key-badge">V</span> Melee &nbsp;•&nbsp;
+          <span class="key-badge">C</span> Crouch &nbsp;•&nbsp;
+          <span class="key-badge">F</span> Flashlight &nbsp;•&nbsp;
+          <span class="key-badge">N</span> NVG &nbsp;•&nbsp;
+          <span class="key-badge">G</span> Grenade &nbsp;•&nbsp;
+          <span class="key-badge">J</span> Smoke &nbsp;•&nbsp;
+          <span class="key-badge">X</span> Claymore &nbsp;•&nbsp;
+          <span class="key-badge">M</span> Map &nbsp;•&nbsp;
+          <span class="key-badge">B</span> Buy &nbsp;•&nbsp;
+          <span class="key-badge">ESC</span> Pause
+        </div>
         <div class="setting-item">
           <label for="setting-partner-select">SWAT Partner Mode:</label>
           <select id="setting-partner-select" class="map-select-dropdown">

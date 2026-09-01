@@ -360,9 +360,13 @@ const radarCanvas = document.getElementById('radar-canvas');
 const radarCtx = radarCanvas ? radarCanvas.getContext('2d') : null;
 const largeMapCanvas = document.getElementById('large-tactical-map');
 const largeMapCtx = largeMapCanvas ? largeMapCanvas.getContext('2d') : null;
+const hudOverlayCanvas = document.getElementById('hud-overlay-canvas');
+const hudOverlayCtx = hudOverlayCanvas ? hudOverlayCanvas.getContext('2d') : null;
 const tacticalMapModal = document.getElementById('tactical-map-modal');
 const closeMapBtn = document.getElementById('close-map-btn');
-const dynamicCrosshair = document.getElementById('dynamic-crosshair');
+
+let hitmarkerOpacity = 0;
+let currentCrosshairSpread = 8;
 
 // Settings Sliders DOM
 const settingSens = document.getElementById('setting-sens');
@@ -629,8 +633,27 @@ let fpsWeaponGroup;
 let fpsKnifeMesh;
 let currentWeaponMesh;
 let muzzleFlashPoint;
+let muzzleFlashSprite;
 let weaponRecoil = 0;
 let weaponBob = 0;
+
+function createMuzzleFlashTexture() {
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+
+  const grad = ctx.createRadialGradient(64, 64, 0, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(255, 255, 255, 1.0)');
+  grad.addColorStop(0.2, 'rgba(251, 191, 36, 0.9)');
+  grad.addColorStop(0.5, 'rgba(239, 68, 68, 0.6)');
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 128, 128);
+
+  return new THREE.CanvasTexture(canvas);
+}
 
 // Initialization
 function init() {
@@ -716,9 +739,15 @@ function initFPSWeaponGroup() {
   camera.add(fpsWeaponGroup);
   scene.add(camera);
 
-  // Muzzle flash point light
+  // Muzzle flash point light & radial gradient Sprite
   muzzleFlashPoint = new THREE.PointLight(0xfbbf24, 0, 4);
   fpsWeaponGroup.add(muzzleFlashPoint);
+
+  const mfTexture = createMuzzleFlashTexture();
+  const mfMat = new THREE.SpriteMaterial({ map: mfTexture, transparent: true, opacity: 0, blending: THREE.AdditiveBlending });
+  muzzleFlashSprite = new THREE.Sprite(mfMat);
+  muzzleFlashSprite.scale.set(0.01, 0.01, 1);
+  fpsWeaponGroup.add(muzzleFlashSprite);
 
   // Tactical Weapon Flashlight (SpotLight attached to camera)
   tacticalFlashlight = new THREE.SpotLight(0xffffff, 0, 25, Math.PI / 6, 0.4, 1);
@@ -813,6 +842,7 @@ function updateFPSWeaponMesh() {
 
     group.position.set(0.24, -0.22, -0.45);
     muzzleFlashPoint.position.set(0.24, -0.16, -0.8);
+    if (muzzleFlashSprite) muzzleFlashSprite.position.set(0.24, -0.16, -0.8);
   } else if (type === 'smg') {
     // Tactical SMG Model
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.1, 0.32), darkMetalMat);
@@ -836,6 +866,7 @@ function updateFPSWeaponMesh() {
 
     group.position.set(0.22, -0.2, -0.42);
     muzzleFlashPoint.position.set(0.22, -0.14, -0.78);
+    if (muzzleFlashSprite) muzzleFlashSprite.position.set(0.22, -0.14, -0.78);
   } else if (type === 'shotgun') {
     // Tactical Shotgun Model
     const barrel = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.04, 0.65, 8), darkMetalMat);
@@ -858,6 +889,7 @@ function updateFPSWeaponMesh() {
 
     group.position.set(0.26, -0.24, -0.5);
     muzzleFlashPoint.position.set(0.26, -0.18, -0.98);
+    if (muzzleFlashSprite) muzzleFlashSprite.position.set(0.26, -0.18, -0.98);
   } else if (type === 'rifle') {
     // Assault Rifle Model
     const body = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.11, 0.45), gunMetalMat);
@@ -885,6 +917,7 @@ function updateFPSWeaponMesh() {
 
     group.position.set(0.25, -0.22, -0.52);
     muzzleFlashPoint.position.set(0.25, -0.16, -1.05);
+    if (muzzleFlashSprite) muzzleFlashSprite.position.set(0.25, -0.16, -1.05);
   }
 
   currentWeaponMesh = group;
@@ -1899,9 +1932,13 @@ function animate() {
     if (bloodSplatterEl) bloodSplatterEl.classList.add('hidden');
   }
 
-  // Smooth weapon recoil decay & movement weapon bobbing
+  // Smooth weapon recoil decay & movement weapon bobbing / muzzle flash fading
   if (weaponRecoil > 0) weaponRecoil *= 0.82;
   if (muzzleFlashPoint && muzzleFlashPoint.intensity > 0) muzzleFlashPoint.intensity *= 0.7;
+  if (muzzleFlashSprite && muzzleFlashSprite.material.opacity > 0) {
+    muzzleFlashSprite.material.opacity *= 0.6;
+    if (muzzleFlashSprite.material.opacity < 0.05) muzzleFlashSprite.material.opacity = 0;
+  }
 
   // Dynamic Crosshair Spread based on Movement, Crouching, & Recoil
   let moveActive = keysPressed.KeyW || keysPressed.Keyw || keysPressed.KeyS || keysPressed.Keys || keysPressed.KeyA || keysPressed.Keya || keysPressed.KeyD || keysPressed.Keyd;
@@ -1955,10 +1992,14 @@ function animate() {
     isReloadingAnimation = Math.max(0, isReloadingAnimation - 0.08);
   }
 
-  // Apply weapon recoil, bob, ADS centering, reload tilt, & knife slash animation
+  // Apply weapon recoil, Lissajous figure-8 sway, ADS centering, reload tilt, & knife slash animation
   if (currentWeaponMesh) {
-    const bobOffset = Math.sin(weaponBob) * (isAimingDownSights ? 0.004 : 0.015);
-    const sideBobOffset = Math.cos(weaponBob * 0.5) * (isAimingDownSights ? 0.002 : 0.01);
+    // Figure-8 Lissajous curve calculation for natural breathing and footfall sway
+    const lissajousY = Math.sin(weaponBob) * (isAimingDownSights ? 0.003 : 0.015);
+    const lissajousX = Math.cos(weaponBob * 0.5) * (isAimingDownSights ? 0.002 : 0.012);
+
+    const bobOffset = lissajousY;
+    const sideBobOffset = lissajousX;
 
     let gunAnimY = 0;
     let gunAnimX = 0;
@@ -2229,6 +2270,7 @@ function animate() {
   }
 
   renderRadar();
+  renderHUDCanvas();
   renderer.render(scene, camera);
 }
 
@@ -2292,19 +2334,88 @@ function hasLineOfSight(startPos, endPos) {
   return intersects.length === 0;
 }
 
-function updateDynamicCrosshair(spreadPixels) {
-  if (!dynamicCrosshair) return;
-  const lines = dynamicCrosshair.querySelectorAll('.ch-line');
-  if (lines.length >= 4) {
-    const top = lines[0];
-    const bottom = lines[1];
-    const left = lines[2];
-    const right = lines[3];
+function triggerHitmarker(isHeadshot = false) {
+  hitmarkerOpacity = 1.0;
+  if (isHeadshot) playSound('headshot');
+  else playSound('hit');
+}
 
-    top.style.transform = `translate(-50%, -${spreadPixels}px)`;
-    bottom.style.transform = `translate(-50%, ${spreadPixels}px)`;
-    left.style.transform = `translate(-${spreadPixels}px, -50%)`;
-    right.style.transform = `translate(${spreadPixels}px, -50%)`;
+function updateDynamicCrosshair(spreadPixels) {
+  currentCrosshairSpread = spreadPixels;
+}
+
+function renderHUDCanvas() {
+  if (!hudOverlayCanvas || !hudOverlayCtx) return;
+
+  if (canvasContainer) {
+    const width = canvasContainer.clientWidth || 800;
+    const height = canvasContainer.clientHeight || 380;
+    if (hudOverlayCanvas.width !== width || hudOverlayCanvas.height !== height) {
+      hudOverlayCanvas.width = width;
+      hudOverlayCanvas.height = height;
+    }
+  }
+
+  const w = hudOverlayCanvas.width;
+  const h = hudOverlayCanvas.height;
+  const cx = w / 2;
+  const cy = h / 2;
+
+  hudOverlayCtx.clearRect(0, 0, w, h);
+
+  // 1. Render Dynamic Crosshair
+  const spread = currentCrosshairSpread;
+  const lineLen = 8;
+  const lineThick = 2;
+
+  hudOverlayCtx.fillStyle = '#38bdf8';
+  hudOverlayCtx.shadowColor = 'rgba(56, 189, 248, 0.8)';
+  hudOverlayCtx.shadowBlur = 4;
+
+  // Center Dot
+  hudOverlayCtx.beginPath();
+  hudOverlayCtx.arc(cx, cy, 1.5, 0, Math.PI * 2);
+  hudOverlayCtx.fill();
+
+  // Top Line
+  hudOverlayCtx.fillRect(cx - lineThick / 2, cy - spread - lineLen, lineThick, lineLen);
+  // Bottom Line
+  hudOverlayCtx.fillRect(cx - lineThick / 2, cy + spread, lineThick, lineLen);
+  // Left Line
+  hudOverlayCtx.fillRect(cx - spread - lineLen, cy - lineThick / 2, lineLen, lineThick);
+  // Right Line
+  hudOverlayCtx.fillRect(cx + spread, cy - lineThick / 2, lineLen, lineThick);
+
+  // 2. Render Hitmarker X if active
+  if (hitmarkerOpacity > 0) {
+    hudOverlayCtx.save();
+    hudOverlayCtx.strokeStyle = `rgba(239, 68, 68, ${hitmarkerOpacity})`;
+    hudOverlayCtx.lineWidth = 3;
+    hudOverlayCtx.shadowColor = '#ef4444';
+    hudOverlayCtx.shadowBlur = 8;
+
+    const gap = 4;
+    const size = 12;
+
+    hudOverlayCtx.beginPath();
+    // Top-Left to Bottom-Right arms
+    hudOverlayCtx.moveTo(cx - gap, cy - gap);
+    hudOverlayCtx.lineTo(cx - gap - size, cy - gap - size);
+
+    hudOverlayCtx.moveTo(cx + gap, cy + gap);
+    hudOverlayCtx.lineTo(cx + gap + size, cy + gap + size);
+
+    // Top-Right to Bottom-Left arms
+    hudOverlayCtx.moveTo(cx + gap, cy - gap);
+    hudOverlayCtx.lineTo(cx + gap + size, cy - gap - size);
+
+    hudOverlayCtx.moveTo(cx - gap, cy + gap);
+    hudOverlayCtx.lineTo(cx - gap - size, cy + gap + size);
+
+    hudOverlayCtx.stroke();
+    hudOverlayCtx.restore();
+
+    hitmarkerOpacity -= 0.08;
   }
 }
 
@@ -2467,9 +2578,14 @@ function handleShooterClick(event) {
   const screenCenterX = rect.width / 2;
   const screenCenterY = rect.height / 2;
 
-  // Trigger weapon kick / recoil animation and muzzle flash
+  // Trigger weapon kick / recoil animation, muzzle flash point light, and muzzle flash sprite scaling
   weaponRecoil = 1.0;
   if (muzzleFlashPoint) muzzleFlashPoint.intensity = 5.0;
+  if (muzzleFlashSprite) {
+    muzzleFlashSprite.material.opacity = 0.95;
+    const flashScale = 0.2 + Math.random() * 0.15;
+    muzzleFlashSprite.scale.set(flashScale, flashScale, 1);
+  }
 
   if (currentWpnKey === 'shotgun') {
     // Shotgun Multi-Pellet Spread Logic
@@ -2605,12 +2721,8 @@ function handleShooterClick(event) {
 
       spawnFloatingText(`${label}-${appliedDamage}`, screenCenterX, screenCenterY, hitBodyPart === 'head');
 
-      // Trigger Hitmarker Visual & Sound
-      if (hitmarkerEl) {
-        hitmarkerEl.classList.remove('hidden');
-        setTimeout(() => hitmarkerEl.classList.add('hidden'), 150);
-      }
-      playSound(hitBodyPart === 'head' ? 'headshot' : 'hit');
+      // Trigger Hitmarker Visual & Sound via 2D Overlay Canvas
+      triggerHitmarker(hitBodyPart === 'head');
 
       if (enemy.hp <= 0) {
         scene.remove(enemy.mesh);
@@ -3907,12 +4019,22 @@ function executeKnifeDamageCheck() {
   const screenCenterX = rect.width / 2;
   const screenCenterY = rect.height / 2;
 
+  // Camera forward look vector
+  const lookDir = new THREE.Vector3();
+  camera.getWorldDirection(lookDir);
+
   // Melee range raycast check (close-quarters strike up to 2.2 meters)
   const meleeRaycaster = new THREE.Raycaster();
   meleeRaycaster.setFromCamera(new THREE.Vector2(0, 0), camera);
 
   for (let i = activeEnemies.length - 1; i >= 0; i--) {
     const enemy = activeEnemies[i];
+
+    // Directional check: ensure player camera is facing enemy (dot product > 0.85)
+    const toEnemy = enemy.mesh.position.clone().sub(camera.position).normalize();
+    const dot = lookDir.dot(toEnemy);
+    if (dot <= 0.85) continue;
+
     const intersects = meleeRaycaster.intersectObject(enemy.mesh, true);
 
     if (intersects.length > 0 && intersects[0].distance <= 2.2) {
