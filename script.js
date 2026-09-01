@@ -1,40 +1,35 @@
-// Game State for 3D City Tactical Shooter: Cops vs Robbers
-let gameState = {
-  cash: 800,
-  health: 100,
-  maxHealth: 100,
-  armor: 0,
-  maxArmor: 100,
-  round: 1,
-  isRoundActive: false,
-  sfxMuted: false,
-  inventory: {
-    pistol: true,
-    smg: false,
-    shotgun: false,
-    rifle: false
-  },
-  attachments: {
-    reddot: false,
-    laser: false
-  },
-  equippedWeapon: 'pistol',
-  grenades: 2,
-  smokeGrenades: 2,
-  claymores: 2,
-  xp: 0,
-  rank: 'CADET',
-  camos: { black: true, urban: true, gold: false },
-  equippedCamo: 'black',
-  hasKevlarHelmet: false,
-  swatPartnerMode: 'squad',
-  ammo: {
-    pistol: { clip: 12, maxClip: 12, reserve: Infinity },
-    smg: { clip: 30, maxClip: 30, reserve: 120 },
-    shotgun: { clip: 6, maxClip: 6, reserve: 24 },
-    rifle: { clip: 30, maxClip: 30, reserve: 90 }
-  }
-};
+function createInitialGameState() {
+  return {
+    cash: 800,
+    health: 100,
+    maxHealth: 100,
+    armor: 0,
+    maxArmor: 100,
+    round: 1,
+    isRoundActive: false,
+    sfxMuted: false,
+    xp: 0,
+    rank: '🎖️ CADET',
+    inventory: { pistol: true, smg: false, shotgun: false, rifle: false },
+    attachments: { reddot: false, laser: false },
+    camos: { black: true, urban: true, gold: false },
+    equippedCamo: 'black',
+    equippedWeapon: 'pistol',
+    hasKevlarHelmet: false,
+    swatPartnerMode: 'squad',
+    grenades: 2,
+    smokeGrenades: 2,
+    claymores: 2,
+    ammo: {
+      pistol: { clip: 12, maxClip: 12, reserve: Infinity },
+      smg: { clip: 30, maxClip: 30, reserve: 120 },
+      shotgun: { clip: 6, maxClip: 6, reserve: 24 },
+      rifle: { clip: 30, maxClip: 30, reserve: 90 }
+    }
+  };
+}
+
+let gameState = createInitialGameState();
 
 let isAimingDownSights = false;
 let isReloadingAnimation = 0; // 0 to 1
@@ -204,7 +199,7 @@ function playSound(type) {
     osc.type = 'square';
     osc.frequency.setValueAtTime(300, now);
     osc.frequency.exponentialRampToValueAtTime(40, now + 0.2);
-    gain.gain.setValueAtTime(0.35, now);
+    gain.gain.setValueAtTime(0.35 * volMult, now);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
     osc.start(now);
     osc.stop(now + 0.2);
@@ -212,7 +207,7 @@ function playSound(type) {
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(700, now);
     osc.frequency.exponentialRampToValueAtTime(150, now + 0.06);
-    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.setValueAtTime(0.2 * volMult, now);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
     osc.start(now);
     osc.stop(now + 0.06);
@@ -220,7 +215,7 @@ function playSound(type) {
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(400, now);
     osc.frequency.setValueAtTime(600, now + 0.1);
-    gain.gain.setValueAtTime(0.15, now);
+    gain.gain.setValueAtTime(0.15 * volMult, now);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
     osc.start(now);
     osc.stop(now + 0.2);
@@ -228,7 +223,7 @@ function playSound(type) {
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(350, now);
     osc.frequency.exponentialRampToValueAtTime(650, now + 0.06);
-    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.setValueAtTime(0.2 * volMult, now);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
     osc.start(now);
     osc.stop(now + 0.06);
@@ -236,7 +231,7 @@ function playSound(type) {
     osc.type = 'square';
     osc.frequency.setValueAtTime(900, now);
     osc.frequency.exponentialRampToValueAtTime(1400, now + 0.12);
-    gain.gain.setValueAtTime(0.3, now);
+    gain.gain.setValueAtTime(0.3 * volMult, now);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
     osc.start(now);
     osc.stop(now + 0.12);
@@ -244,7 +239,7 @@ function playSound(type) {
     osc.type = 'sawtooth';
     osc.frequency.setValueAtTime(120, now);
     osc.frequency.exponentialRampToValueAtTime(20, now + 0.5);
-    gain.gain.setValueAtTime(0.4, now);
+    gain.gain.setValueAtTime(0.4 * volMult, now);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
     osc.start(now);
     osc.stop(now + 0.5);
@@ -252,7 +247,7 @@ function playSound(type) {
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(80, now);
     osc.frequency.exponentialRampToValueAtTime(30, now + 0.05);
-    gain.gain.setValueAtTime(0.1, now);
+    gain.gain.setValueAtTime(0.1 * volMult, now);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
     osc.start(now);
     osc.stop(now + 0.05);
@@ -261,7 +256,7 @@ function playSound(type) {
     osc.frequency.setValueAtTime(523.25, now);
     osc.frequency.setValueAtTime(659.25, now + 0.08);
     osc.frequency.setValueAtTime(783.99, now + 0.16);
-    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.setValueAtTime(0.2 * volMult, now);
     gain.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
     osc.start(now);
     osc.stop(now + 0.25);
@@ -361,7 +356,7 @@ const buyAttLaserBtn = document.getElementById('buy-att-laser');
 const toastContainer = document.getElementById('toast-container');
 
 // Three.js Variables
-let scene, camera, renderer;
+let scene, camera, renderer, clock = null;
 let copPlayerMesh;
 let cityGroup;
 let policeSirenLightRed, policeSirenLightBlue;
@@ -377,6 +372,7 @@ let currentMap = 'street';
 let obstacleMeshes = [];
 let destructibleMeshes = [];
 let activeHostage = null;
+let extractionZoneMesh = null;
 let swatPartnerMesh = null;
 let swatPartnerTimer = 0;
 let enemiesToSpawnInRound = 0;
@@ -407,8 +403,117 @@ let isGameStarted = false;
 let isReloading = false;
 let isVaultDefenseActive = false;
 let vaultHp = 500;
+let maxVaultHp = 500;
 let vaultMesh = null;
+let vaultHpBarFill = null;
+let vaultHpBarGroup = null;
 let lastRadioTime = 0;
+
+function spawnVaultConsole() {
+  if (!scene) return;
+  if (vaultMesh) {
+    scene.remove(vaultMesh);
+    vaultMesh = null;
+  }
+
+  const group = new THREE.Group();
+
+  const vaultGeom = new THREE.BoxGeometry(1.6, 1.4, 1.2);
+  const vaultMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.9, roughness: 0.2 });
+  const body = new THREE.Mesh(vaultGeom, vaultMat);
+  body.position.y = 0.7;
+  group.add(body);
+
+  const doorGeom = new THREE.CylinderGeometry(0.4, 0.4, 0.1, 16);
+  const doorMat = new THREE.MeshStandardMaterial({ color: 0xf59e0b, metalness: 0.9, roughness: 0.3 });
+  const door = new THREE.Mesh(doorGeom, doorMat);
+  door.rotation.x = Math.PI / 2;
+  door.position.set(0, 0.7, 0.61);
+  group.add(door);
+
+  vaultHpBarGroup = new THREE.Group();
+  vaultHpBarGroup.position.set(0, 1.8, 0);
+
+  const bgGeom = new THREE.PlaneGeometry(1.4, 0.18);
+  const bgMat = new THREE.MeshBasicMaterial({ color: 0x0f172a, side: THREE.DoubleSide });
+  const bg = new THREE.Mesh(bgGeom, bgMat);
+  vaultHpBarGroup.add(bg);
+
+  const fillGeom = new THREE.PlaneGeometry(1.36, 0.14);
+  const fillMat = new THREE.MeshBasicMaterial({ color: 0x10b981, side: THREE.DoubleSide });
+  vaultHpBarFill = new THREE.Mesh(fillGeom, fillMat);
+  vaultHpBarFill.position.z = 0.001;
+  vaultHpBarGroup.add(vaultHpBarFill);
+
+  group.add(vaultHpBarGroup);
+
+  group.position.set(0, -0.9, -6);
+  scene.add(group);
+  vaultMesh = group;
+
+  vaultHp = 500;
+  maxVaultHp = 500;
+  isVaultDefenseActive = true;
+}
+
+function spawnHostage() {
+  if (!scene) return;
+  if (activeHostage) {
+    if (activeHostage.mesh) scene.remove(activeHostage.mesh);
+    activeHostage = null;
+  }
+  if (extractionZoneMesh) {
+    scene.remove(extractionZoneMesh);
+    extractionZoneMesh = null;
+  }
+
+  const hostageGroup = new THREE.Group();
+
+  const bodyGeom = new THREE.BoxGeometry(0.5, 0.7, 0.3);
+  const bodyMat = new THREE.MeshStandardMaterial({ color: 0x0ea5e9, roughness: 0.6 });
+  const bodyMesh = new THREE.Mesh(bodyGeom, bodyMat);
+  bodyMesh.position.y = 0.35;
+  hostageGroup.add(bodyMesh);
+
+  const headGeom = new THREE.BoxGeometry(0.35, 0.35, 0.35);
+  const headMat = new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.8 });
+  const headMesh = new THREE.Mesh(headGeom, headMat);
+  headMesh.position.y = 0.85;
+  hostageGroup.add(headMesh);
+
+  const armGeom = new THREE.BoxGeometry(0.12, 0.45, 0.12);
+  const armMat = new THREE.MeshStandardMaterial({ color: 0x0284c7 });
+  const armMesh = new THREE.Mesh(armGeom, armMat);
+  armMesh.position.set(0, 0.35, -0.2);
+  armMesh.rotation.x = Math.PI / 4;
+  hostageGroup.add(armMesh);
+
+  const markerGeom = new THREE.ConeGeometry(0.2, 0.4, 4);
+  const markerMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, wireframe: true, depthTest: false });
+  const markerMesh = new THREE.Mesh(markerGeom, markerMat);
+  markerMesh.position.y = 1.4;
+  markerMesh.rotation.x = Math.PI;
+  hostageGroup.add(markerMesh);
+
+  const hostageX = (Math.random() - 0.5) * 16;
+  const hostageZ = -10 - Math.random() * 12;
+  hostageGroup.position.set(hostageX, -0.9, hostageZ);
+
+  scene.add(hostageGroup);
+
+  const extGeom = new THREE.RingGeometry(1.5, 2.0, 32);
+  const extMat = new THREE.MeshBasicMaterial({ color: 0x10b981, side: THREE.DoubleSide, transparent: true, opacity: 0.6 });
+  extractionZoneMesh = new THREE.Mesh(extGeom, extMat);
+  extractionZoneMesh.rotation.x = Math.PI / 2;
+  extractionZoneMesh.position.set(0, -0.95, -2);
+  scene.add(extractionZoneMesh);
+
+  activeHostage = {
+    mesh: hostageGroup,
+    markerMesh,
+    isRescued: false
+  };
+}
 
 function playRadioChatter(messageText) {
   if (gameState.sfxMuted || sfxVolume <= 0 || masterVolume <= 0) return;
@@ -708,6 +813,42 @@ function updateFPSWeaponMesh() {
 
   currentWeaponMesh = group;
   fpsWeaponGroup.add(currentWeaponMesh);
+}
+
+function movePlayer(moveX, moveZ, dt = 0.016) {
+  let activeSpeed = isCrouched ? 3.5 : 6.0;
+  if (isSprinting && !isCrouched) activeSpeed *= 1.6;
+
+  weaponBob += (isCrouched ? 3.5 : (isSprinting ? 10.0 : 6.0)) * dt;
+  if (Math.sin(weaponBob) > 0.95) {
+    playSound('footstep');
+  }
+
+  const moveVec = new THREE.Vector3(moveX, 0, moveZ).normalize().multiplyScalar(activeSpeed * dt);
+  moveVec.applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraRotation.yaw);
+
+  let targetX = Math.min(Math.max(-12.0, playerPos.x + moveVec.x), 12.0);
+  let targetZ = Math.min(Math.max(-8.0, playerPos.z + moveVec.z), 12.0);
+
+  let canMoveX = true;
+  let canMoveZ = true;
+
+  barricadeObstacles.forEach(box => {
+    if (targetX >= box.min.x - 0.35 && targetX <= box.max.x + 0.35 &&
+        playerPos.z >= box.min.z - 0.35 && playerPos.z <= box.max.z + 0.35) {
+      canMoveX = false;
+    }
+    if (playerPos.x >= box.min.x - 0.35 && playerPos.x <= box.max.x + 0.35 &&
+        targetZ >= box.min.z - 0.35 && targetZ <= box.max.z + 0.35) {
+      canMoveZ = false;
+    }
+  });
+
+  if (canMoveX) playerPos.x = targetX;
+  if (canMoveZ) playerPos.z = targetZ;
+
+  if (copPlayerMesh) copPlayerMesh.position.set(playerPos.x, playerPos.y, playerPos.z);
+  updateCameraTransform();
 }
 
 function updateCameraTransform() {
@@ -1380,15 +1521,9 @@ function updateGamepadInput() {
         cameraRotation.pitch = Math.max(-1.4, Math.min(1.4, cameraRotation.pitch));
       }
 
-      // Movement application
+      // Unified Movement via movePlayer
       if (lx !== 0 || ly !== 0) {
-        const euler = new THREE.Euler(0, cameraRotation.yaw, 0, 'YXZ');
-        const forward = new THREE.Vector3(0, 0, -1).applyEuler(euler);
-        const right = new THREE.Vector3(1, 0, 0).applyEuler(euler);
-
-        const moveSpeed = (isSprinting ? 0.18 : 0.1) * (isCrouched ? 0.5 : 1.0);
-        playerPos.x += (forward.x * -ly + right.x * lx) * moveSpeed;
-        playerPos.z += (forward.z * -ly + right.z * lx) * moveSpeed;
+        movePlayer(lx, ly, 0.016);
       }
 
       // Triggers: R2 Fire (7), L2 ADS (6)
@@ -1442,6 +1577,10 @@ function updateGamepadInput() {
 
 function animate() {
   requestAnimationFrame(animate);
+  if (!clock && window.THREE && THREE.Clock) {
+    clock = new THREE.Clock();
+  }
+  const dt = clock ? Math.min(0.1, clock.getDelta()) : 0.016;
 
   if (!isGameStarted) {
     // Cinematic background camera orbit on main menu screen
@@ -1476,6 +1615,72 @@ function animate() {
         activeClaymores.splice(c, 1);
         showToast('💥 PROXIMITY CLAYMORE DETONATED!');
         break;
+      }
+    }
+  }
+
+  // Vault Defense Objective Logic
+  if (isVaultDefenseActive && vaultMesh) {
+    if (vaultHpBarGroup && camera) {
+      vaultHpBarGroup.quaternion.copy(camera.quaternion);
+    }
+
+    const vaultPos = new THREE.Vector3(0, -0.9, -6);
+    activeEnemies.forEach(enemy => {
+      const distToVault = enemy.mesh.position.distanceTo(vaultPos);
+      if (distToVault < 1.6) {
+        vaultHp -= 0.5;
+        if (vaultHpBarFill) {
+          const ratio = Math.max(0, vaultHp / maxVaultHp);
+          vaultHpBarFill.scale.x = ratio;
+        }
+      }
+    });
+
+    if (vaultHp <= 0) {
+      isVaultDefenseActive = false;
+      showToast('🚨 VAULT BREACHED! -$300 Fine!');
+      playRadioChatter('Vault breached! Robbers escaped with cash reserves!');
+      gameState.cash = Math.max(0, gameState.cash - 300);
+      if (vaultMesh) scene.remove(vaultMesh);
+      vaultMesh = null;
+      updateUI();
+    }
+  }
+
+  // Hostage Rescue Objective Logic
+  if (activeHostage && activeHostage.mesh) {
+    if (activeHostage.markerMesh) {
+      activeHostage.markerMesh.rotation.y += 0.03;
+    }
+
+    const distToPlayer = activeHostage.mesh.position.distanceTo(camera.position);
+
+    if (!activeHostage.isRescued && distToPlayer < 2.0) {
+      activeHostage.isRescued = true;
+      showToast('👥 HOSTAGE SECURED! Escort them to GREEN extraction ring!');
+      playRadioChatter('Hostage secured officer! Bring them to extraction zone!');
+    }
+
+    if (activeHostage.isRescued) {
+      const followPos = camera.position.clone().add(new THREE.Vector3(0, 0, 1.2).applyQuaternion(camera.quaternion));
+      followPos.y = -0.9;
+      activeHostage.mesh.position.lerp(followPos, 0.08);
+
+      const distToExtract = activeHostage.mesh.position.distanceTo(new THREE.Vector3(0, -0.9, -2));
+      if (distToExtract < 2.2) {
+        scene.remove(activeHostage.mesh);
+        if (extractionZoneMesh) scene.remove(extractionZoneMesh);
+        activeHostage = null;
+        extractionZoneMesh = null;
+
+        gameState.cash += 500;
+        careerStats.hostages += 1;
+        saveCareerStats();
+        showToast('🎉 HOSTAGE EXTRACTED! +$500 BONUS!');
+        playRadioChatter('Hostage safely extracted! Outstanding work officer!');
+        playSound('buy');
+        updateUI();
       }
     }
   }
@@ -1620,41 +1825,7 @@ function animate() {
     if (keysPressed.KeyD || keysPressed.Keyd) moveX += 1;
 
     if (moveX !== 0 || moveZ !== 0) {
-      let activeSpeed = isCrouched ? moveSpeed * 0.5 : moveSpeed;
-      if (isSprinting && !isCrouched) activeSpeed *= 1.7;
-
-      weaponBob += isCrouched ? 0.07 : (isSprinting ? 0.2 : 0.12);
-      if (Math.sin(weaponBob) > 0.95) {
-        playSound('footstep');
-      }
-      const moveVec = new THREE.Vector3(moveX, 0, moveZ).normalize().multiplyScalar(activeSpeed);
-      // Rotate movement vector according to camera yaw angle
-      moveVec.applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraRotation.yaw);
-
-      // Calculate tentative target position
-      let targetX = Math.min(Math.max(-12.0, playerPos.x + moveVec.x), 12.0);
-      let targetZ = Math.min(Math.max(-8.0, playerPos.z + moveVec.z), 12.0);
-
-      // Check collision against solid barricade walls (player radius ~0.35)
-      let canMoveX = true;
-      let canMoveZ = true;
-
-      barricadeObstacles.forEach(box => {
-        if (targetX >= box.min.x - 0.35 && targetX <= box.max.x + 0.35 &&
-            playerPos.z >= box.min.z - 0.35 && playerPos.z <= box.max.z + 0.35) {
-          canMoveX = false;
-        }
-        if (playerPos.x >= box.min.x - 0.35 && playerPos.x <= box.max.x + 0.35 &&
-            targetZ >= box.min.z - 0.35 && targetZ <= box.max.z + 0.35) {
-          canMoveZ = false;
-        }
-      });
-
-      if (canMoveX) playerPos.x = targetX;
-      if (canMoveZ) playerPos.z = targetZ;
-
-      copPlayerMesh.position.set(playerPos.x, playerPos.y, playerPos.z);
-      updateCameraTransform();
+      movePlayer(moveX, moveZ, dt);
     }
   }
 
@@ -1797,6 +1968,7 @@ function animate() {
 
     if (proj.life <= 0) {
       scene.remove(proj.mesh);
+      disposeHierarchy(proj.mesh);
       activeProjectiles.splice(i, 1);
     }
   }
@@ -1961,10 +2133,34 @@ function deployEnemySmokeGrenade(pos) {
   showToast('💨 ROBBERS DEPLOYED SMOKE SCREEN!');
 }
 
+function lineSegmentIntersectsSphere(p1, p2, sphereCenter, radius) {
+  const dx = p2.x - p1.x;
+  const dy = p2.y - p1.y;
+  const dz = p2.z - p1.z;
+  const lenSq = dx * dx + dy * dy + dz * dz;
+
+  if (lenSq === 0) {
+    const distSq = (p1.x - sphereCenter.x) ** 2 + (p1.y - sphereCenter.y) ** 2 + (p1.z - sphereCenter.z) ** 2;
+    return distSq <= radius * radius;
+  }
+
+  let t = ((sphereCenter.x - p1.x) * dx + (sphereCenter.y - p1.y) * dy + (sphereCenter.z - p1.z) * dz) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+
+  const projX = p1.x + t * dx;
+  const projY = p1.y + t * dy;
+  const projZ = p1.z + t * dz;
+
+  const distSq = (projX - sphereCenter.x) ** 2 + (projY - sphereCenter.y) ** 2 + (projZ - sphereCenter.z) ** 2;
+  return distSq <= radius * radius;
+}
+
 function hasLineOfSight(startPos, endPos) {
   for (let s = 0; s < activeSmokeClouds.length; s++) {
     const cloud = activeSmokeClouds[s];
-    if (startPos.distanceTo(cloud.pos) < cloud.radius) return false;
+    if (lineSegmentIntersectsSphere(startPos, endPos, cloud.pos, cloud.radius)) {
+      return false;
+    }
   }
 
   if (!obstacleMeshes || obstacleMeshes.length === 0) return true;
@@ -2712,44 +2908,24 @@ function exitGame() {
 function restartGame() {
   isGameExited = false;
   isPaused = false;
-  exitScreen.classList.add('hidden');
+  const sfxMuted = gameState.sfxMuted;
+  const partnerMode = gameState.swatPartnerMode;
 
-  // Full Fresh Reset of Game State
-  gameState = {
-    cash: 800,
-    health: 100,
-    maxHealth: 100,
-    armor: 0,
-    maxArmor: 100,
-    round: 1,
-    isRoundActive: false,
-    sfxMuted: gameState.sfxMuted,
-    xp: 0,
-    rank: '🎖️ CADET',
-    inventory: { pistol: true, smg: false, shotgun: false, rifle: false },
-    attachments: { reddot: false, laser: false },
-    camos: { black: true, urban: true, gold: false },
-    equippedCamo: 'black',
-    equippedWeapon: 'pistol',
-    hasKevlarHelmet: false,
-    swatPartnerMode: gameState.swatPartnerMode,
-    grenades: 2,
-    ammo: {
-      pistol: { clip: 12, maxClip: 12, reserve: Infinity },
-      smg: { clip: 30, maxClip: 30, reserve: 120 },
-      shotgun: { clip: 6, maxClip: 6, reserve: 24 },
-      rifle: { clip: 30, maxClip: 30, reserve: 90 }
-    }
-  };
+  gameState = createInitialGameState();
+  gameState.sfxMuted = sfxMuted;
+  gameState.swatPartnerMode = partnerMode;
 
-  if (rankBadgeEl) rankBadgeEl.textContent = '🎖️ CADET';
+  // Clear all transient game arrays & objects
+  activeProjectiles.forEach(p => { if (p.mesh && scene) scene.remove(p.mesh); });
+  activeProjectiles = [];
 
-  playerPos = { x: 0, y: -0.9, z: 4.2 };
-  cameraRotation = { yaw: 0, pitch: 0 };
-  if (copPlayerMesh) copPlayerMesh.position.set(playerPos.x, playerPos.y, playerPos.z);
-  updateCameraTransform();
+  activeSmokeClouds.forEach(c => { if (c.mesh && scene) scene.remove(c.mesh); });
+  activeSmokeClouds = [];
 
-  activeEnemies.forEach(e => scene.remove(e.mesh));
+  activeClaymores.forEach(c => { if (c.mesh && scene) scene.remove(c.mesh); });
+  activeClaymores = [];
+
+  activeEnemies.forEach(e => { if (e.mesh && scene) scene.remove(e.mesh); });
   activeEnemies = [];
 
   if (activeHostage && activeHostage.mesh) scene.remove(activeHostage.mesh);
@@ -2758,6 +2934,29 @@ function restartGame() {
   if (vaultMesh) scene.remove(vaultMesh);
   vaultMesh = null;
   isVaultDefenseActive = false;
+
+  stopAutoFire();
+  isReloading = false;
+  isReloadingAnimation = 0;
+  isJumping = false;
+  playerYVel = 0;
+  isCrouched = false;
+  isSprinting = false;
+  isAimingDownSights = false;
+  isHoldingBreath = false;
+  knifeAnimFrame = 0;
+  knifeDamageTriggered = false;
+  if (fpsKnifeMesh) fpsKnifeMesh.visible = false;
+  heartbeatTimer = 0;
+
+  if (exitScreen) exitScreen.classList.add('hidden');
+  if (gameOverModal) gameOverModal.classList.add('hidden');
+  if (rankBadgeEl) rankBadgeEl.textContent = gameState.rank;
+
+  playerPos = { x: 0, y: -0.9, z: 4.2 };
+  cameraRotation = { yaw: 0, pitch: 0 };
+  if (copPlayerMesh) copPlayerMesh.position.set(playerPos.x, playerPos.y, playerPos.z);
+  updateCameraTransform();
 
   updateFPSWeaponMesh();
   updateUI();
