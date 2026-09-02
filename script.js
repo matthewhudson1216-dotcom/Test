@@ -1832,6 +1832,7 @@ function spawnRobberEnemy() {
   const enemy = {
     type,
     mesh: robberGroup,
+    torsoMesh,
     hpBarFill: hpFillMesh,
     hpBarGroup: hpBarGroup,
     hp,
@@ -2372,9 +2373,14 @@ function animate() {
     for (let i = activeEnemies.length - 1; i >= 0; i--) {
       const enemy = activeEnemies[i];
 
-      // Face toward player position
+      // Face toward player position cleanly around Y-axis only
       const playerVec = new THREE.Vector3(playerPos.x, -0.9, playerPos.z);
-      enemy.mesh.lookAt(playerVec.x, enemy.mesh.position.y, playerVec.z);
+      const dx = playerVec.x - enemy.mesh.position.x;
+      const dz = playerVec.z - enemy.mesh.position.z;
+      if (Math.abs(dx) > 0.001 || Math.abs(dz) > 0.001) {
+        const angleY = Math.atan2(dx, dz);
+        enemy.mesh.rotation.set(0, angleY, 0, 'YXZ');
+      }
 
       // Enemy Hearing & Perception Logic: Throttled LOS check to prevent main-thread freeze
       if (!enemy.losFrameCounter) enemy.losFrameCounter = Math.floor(Math.random() * 10);
@@ -2502,13 +2508,15 @@ function animate() {
         enemy.rightArm.rotation.x = Math.sin(enemy.walkCycle) * 0.45;
       }
 
-      // Hit recoil physical reaction animation (tilt back on shot)
-      if (enemy.hitRecoil && enemy.hitRecoil > 0) {
-        enemy.mesh.rotation.x = -enemy.hitRecoil * 0.3;
-        enemy.hitRecoil *= 0.8;
-        if (enemy.hitRecoil < 0.02) enemy.hitRecoil = 0;
-      } else {
-        enemy.mesh.rotation.x = 0;
+      // Hit recoil physical reaction animation on torso mesh (never root group)
+      if (enemy.torsoMesh) {
+        if (enemy.hitRecoil && enemy.hitRecoil > 0) {
+          enemy.torsoMesh.rotation.x = -enemy.hitRecoil * 0.35;
+          enemy.hitRecoil *= 0.8;
+          if (enemy.hitRecoil < 0.02) enemy.hitRecoil = 0;
+        } else {
+          enemy.torsoMesh.rotation.x = 0;
+        }
       }
 
       // Keep 3D Health Bar billboarding facing camera
