@@ -17,6 +17,11 @@ function createInitialGameState() {
     maxArmor: 100,
     round: 1,
     isRoundActive: false,
+    freeRevivesAvailable: 1,
+    isTutorialActive: false,
+    tutorialStep: 0,
+    enableWeaponSway: true,
+    enableScreenShake: true,
     missionState: MissionState.BRIEFING,
     objectiveProgress: 0,
     objectiveTarget: 100,
@@ -151,9 +156,31 @@ let sfxVolume = parseInt(localStorage.getItem('cop_vol') || '100', 10) / 100;
 let voiceVolume = parseInt(localStorage.getItem('cop_vol_voice') || '100', 10) / 100;
 let musicVolume = parseInt(localStorage.getItem('cop_vol_music') || '100', 10) / 100;
 
-// Web Audio API Sound Synthesizer
-let audioCtx = null;
+// Audio Asset Cache with Web Audio API Fallback Synthesizer
+const audioCache = {};
+const soundTypes = ['pistol', 'shotgun', 'rifle', 'smg', 'reload', 'hit', 'headshot', 'explosion', 'footstep', 'buy', 'knife', 'heartbeat'];
 
+function preloadAudioAssets() {
+  soundTypes.forEach(type => {
+    const audioPath = `assets/sfx/${type}.mp3`;
+    const audio = new Audio();
+    audio.src = audioPath;
+    audio.preload = 'auto';
+
+    audio.addEventListener('canplaythrough', () => {
+      audioCache[type] = audioPath;
+    }, { once: true });
+
+    audio.addEventListener('error', () => {
+      // Graceful fallback to oscillator synthesis
+      audioCache[type] = null;
+    }, { once: true });
+  });
+}
+
+preloadAudioAssets();
+
+let audioCtx = null;
 let audioListener = null;
 
 function initAudio() {
@@ -202,6 +229,28 @@ function playVoiceCallout(calloutType) {
 }
 
 function playSound(type) {
+  if (gameState.sfxMuted || sfxVolume <= 0) return;
+
+  // Try playing preloaded audio asset clip first if available
+  if (audioCache[type]) {
+    try {
+      const clip = new Audio(audioCache[type]);
+      clip.volume = Math.min(1.0, sfxVolume * masterVolume);
+      const playPromise = clip.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(() => playSyntheticSound(type));
+      }
+      return;
+    } catch (e) {
+      playSyntheticSound(type);
+      return;
+    }
+  }
+
+  playSyntheticSound(type);
+}
+
+function playSyntheticSound(type) {
   if (gameState.sfxMuted || sfxVolume <= 0) return;
   initAudio();
   if (!audioCtx) return;
@@ -367,6 +416,23 @@ const closeMapBtn = document.getElementById('close-map-btn');
 
 let hitmarkerOpacity = 0;
 let currentCrosshairSpread = 8;
+let isCountingDown = false;
+let countdownTimer = 0;
+
+function startUnpauseCountdown() {
+  if (!gameState.isRoundActive) return;
+  isCountingDown = true;
+  countdownTimer = 3.0;
+
+  const countInterval = setInterval(() => {
+    countdownTimer -= 0.1;
+    if (countdownTimer <= -0.5) {
+      clearInterval(countInterval);
+      isCountingDown = false;
+      countdownTimer = 0;
+    }
+  }, 100);
+}
 
 // Settings Sliders DOM
 const settingSens = document.getElementById('setting-sens');
@@ -925,6 +991,11 @@ function updateFPSWeaponMesh() {
 }
 
 function movePlayer(moveX, moveZ, dt = 0.016) {
+  if (gameState.isTutorialActive && gameState.tutorialStep === 1 && (moveX !== 0 || moveZ !== 0)) {
+    gameState.tutorialStep = 2;
+    showToast('🎯 TUTORIAL STEP 2: Great job! Now aim and click MOUSE to shoot a target dummy!');
+  }
+
   const currentWpn = weaponsDef[gameState.equippedWeapon];
   const wpnPenalty = currentWpn ? currentWpn.movementPenalty : 1.0;
 
@@ -2003,8 +2074,13 @@ function animate() {
   // Apply weapon recoil, Lissajous figure-8 sway, ADS centering, reload tilt, & knife slash animation
   if (currentWeaponMesh) {
     // Figure-8 Lissajous curve calculation for natural breathing and footfall sway
-    const lissajousY = Math.sin(weaponBob) * (isAimingDownSights ? 0.003 : 0.015);
-    const lissajousX = Math.cos(weaponBob * 0.5) * (isAimingDownSights ? 0.002 : 0.012);
+    let lissajousY = 0;
+    let lissajousX = 0;
+
+    if (gameState.enableWeaponSway) {
+      lissajousY = Math.sin(weaponBob) * (isAimingDownSights ? 0.003 : 0.015);
+      lissajousX = Math.cos(weaponBob * 0.5) * (isAimingDownSights ? 0.002 : 0.012);
+    }
 
     const bobOffset = lissajousY;
     const sideBobOffset = lissajousX;
@@ -2118,33 +2194,6 @@ function animate() {
     policeSirenLightBlue.intensity = Math.cos(time) > 0 ? 4 : 0.5;
   }
 
-function disposeHierarchy(node) {
-  if (!node) return;
-  try {
-    if (node.geometry) {
-      node.geometry.dispose();
-    }
-    if (node.material) {
-      if (Array.isArray(node.material)) {
-        node.material.forEach(mat => {
-          if (mat && mat.map) mat.map.dispose();
-          if (mat) mat.dispose();
-        });
-      } else {
-        if (node.material.map) node.material.map.dispose();
-        node.material.dispose();
-      }
-    }
-    if (node.children && Array.isArray(node.children)) {
-      for (let i = node.children.length - 1; i >= 0; i--) {
-        disposeHierarchy(node.children[i]);
-      }
-    }
-  } catch (e) {
-    console.warn('disposeHierarchy warning:', e);
-  }
-}
-
   // Animate Projectiles
   for (let i = activeProjectiles.length - 1; i >= 0; i--) {
     const proj = activeProjectiles[i];
@@ -2159,7 +2208,7 @@ function disposeHierarchy(node) {
   }
 
   // Animate Robber Enemies advancing on Cop
-  if (gameState.isRoundActive) {
+  if (gameState.isRoundActive && !isCountingDown) {
     for (let i = activeEnemies.length - 1; i >= 0; i--) {
       const enemy = activeEnemies[i];
 
@@ -2189,8 +2238,10 @@ function disposeHierarchy(node) {
           if (canSeePlayer) {
             fireBulletTracerFromEnemy(enemyEyePos, playerEyePos, 0xef4444);
             damagePlayer(12, enemyEyePos);
-            cameraRotation.pitch += (Math.random() - 0.5) * 0.04;
-            cameraRotation.yaw += (Math.random() - 0.5) * 0.04;
+            if (gameState.enableScreenShake) {
+              cameraRotation.pitch += (Math.random() - 0.5) * 0.04;
+              cameraRotation.yaw += (Math.random() - 0.5) * 0.04;
+            }
           } else if (enemy.lastKnownPlayerPos) {
             // Suppressive fire toward last known player location
             fireBulletTracerFromEnemy(enemyEyePos, enemy.lastKnownPlayerPos.clone().add(new THREE.Vector3(0, 1.2, 0)), 0xef4444);
@@ -2207,16 +2258,49 @@ function disposeHierarchy(node) {
         }
       }
 
-      // Move toward player position with barricade collision checking
+      // Enhanced Cover Seeking & Raycast-Assisted Steering Navigation
       const currentSpeed = enemy.isCharging ? enemy.speed * 2.8 : enemy.speed;
-      const dir = playerVec.clone().sub(enemy.mesh.position).normalize();
-      const nextPos = enemy.mesh.position.clone().addScaledVector(dir, currentSpeed);
+      let moveTarget = playerVec.clone();
 
-      // Check if enemy next step hits a solid barricade
+      // Shooter Enemies Cover & Retreat Decision Logic
+      if (enemy.type === 'shooter') {
+        const isLowHp = (enemy.hp / enemy.maxHp) < 0.35;
+
+        if (isLowHp) {
+          // Retreat away from player when low on HP
+          moveTarget = enemy.mesh.position.clone().add(enemy.mesh.position.clone().sub(playerVec).normalize().multiplyScalar(4.0));
+        } else if (canSeePlayer || enemy.hitRecoil > 0) {
+          // Seek nearest barricade obstacle for cover
+          enemy.peekTimer = (enemy.peekTimer || 0) + 1;
+          const isPeeking = (Math.floor(enemy.peekTimer / 60) % 2) === 0;
+
+          if (!isPeeking && barricadeObstacles.length > 0) {
+            let nearestBox = barricadeObstacles[0];
+            let minDist = Infinity;
+            barricadeObstacles.forEach(box => {
+              const boxCenter = new THREE.Vector3((box.min.x + box.max.x) / 2, -0.9, (box.min.z + box.max.z) / 2);
+              const d = enemy.mesh.position.distanceTo(boxCenter);
+              if (d < minDist) { minDist = d; nearestBox = box; }
+            });
+
+            const coverCenter = new THREE.Vector3((nearestBox.min.x + nearestBox.max.x) / 2, -0.9, (nearestBox.min.z + nearestBox.max.z) / 2);
+            const coverOffset = coverCenter.clone().sub(playerVec).normalize().multiplyScalar(1.2);
+            moveTarget = coverCenter.clone().add(coverOffset);
+          }
+        }
+      }
+
+      // Raycast-assisted pathfinding steering around obstacles
+      let moveDir = moveTarget.clone().sub(enemy.mesh.position);
+      moveDir.y = 0;
+      if (moveDir.length() > 0.1) moveDir.normalize();
+
+      let nextPos = enemy.mesh.position.clone().addScaledVector(moveDir, currentSpeed);
+
       let blockedByBarricade = false;
       barricadeObstacles.forEach(box => {
-        if (nextPos.x >= box.min.x - 0.3 && nextPos.x <= box.max.x + 0.3 &&
-            nextPos.z >= box.min.z - 0.3 && nextPos.z <= box.max.z + 0.3) {
+        if (nextPos.x >= box.min.x - 0.35 && nextPos.x <= box.max.x + 0.35 &&
+            nextPos.z >= box.min.z - 0.35 && nextPos.z <= box.max.z + 0.35) {
           blockedByBarricade = true;
         }
       });
@@ -2224,26 +2308,27 @@ function disposeHierarchy(node) {
       if (!blockedByBarricade) {
         enemy.mesh.position.copy(nextPos);
       } else {
-        // Slide around barricade along X or Z axis
-        const slideX = enemy.mesh.position.clone();
-        slideX.x += dir.x * enemy.speed;
-        let blockedX = false;
+        // Try steering left or right around obstacle
+        const leftDir = moveDir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 4);
+        const rightDir = moveDir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 4);
+
+        const tryLeft = enemy.mesh.position.clone().addScaledVector(leftDir, currentSpeed);
+        let leftBlocked = false;
         barricadeObstacles.forEach(box => {
-          if (slideX.x >= box.min.x - 0.3 && slideX.x <= box.max.x + 0.3 &&
-              slideX.z >= box.min.z - 0.3 && slideX.z <= box.max.z + 0.3) blockedX = true;
+          if (tryLeft.x >= box.min.x - 0.35 && tryLeft.x <= box.max.x + 0.35 &&
+              tryLeft.z >= box.min.z - 0.35 && tryLeft.z <= box.max.z + 0.35) leftBlocked = true;
         });
 
-        if (!blockedX) {
-          enemy.mesh.position.x = slideX.x;
+        if (!leftBlocked) {
+          enemy.mesh.position.copy(tryLeft);
         } else {
-          const slideZ = enemy.mesh.position.clone();
-          slideZ.z += dir.z * enemy.speed;
-          let blockedZ = false;
+          const tryRight = enemy.mesh.position.clone().addScaledVector(rightDir, currentSpeed);
+          let rightBlocked = false;
           barricadeObstacles.forEach(box => {
-            if (slideZ.x >= box.min.x - 0.3 && slideZ.x <= box.max.x + 0.3 &&
-                slideZ.z >= box.min.z - 0.3 && slideZ.z <= box.max.z + 0.3) blockedZ = true;
+            if (tryRight.x >= box.min.x - 0.35 && tryRight.x <= box.max.x + 0.35 &&
+                tryRight.z >= box.min.z - 0.35 && tryRight.z <= box.max.z + 0.35) rightBlocked = true;
           });
-          if (!blockedZ) enemy.mesh.position.z = slideZ.z;
+          if (!rightBlocked) enemy.mesh.position.copy(tryRight);
         }
       }
 
@@ -2428,7 +2513,27 @@ function renderHUDCanvas() {
   // Right Line
   hudOverlayCtx.fillRect(cx + spread, cy - lineThick / 2, lineLen, lineThick);
 
-  // 2. Render Hitmarker X if active
+  // 2. Render Unpause Countdown Text if active
+  if (isCountingDown && countdownTimer > -0.5) {
+    hudOverlayCtx.save();
+    hudOverlayCtx.textAlign = 'center';
+    hudOverlayCtx.textBaseline = 'middle';
+
+    let text = '3';
+    if (countdownTimer <= 0) text = 'ACTION!';
+    else if (countdownTimer <= 1.0) text = '1';
+    else if (countdownTimer <= 2.0) text = '2';
+
+    hudOverlayCtx.font = '900 48px system-ui, sans-serif';
+    hudOverlayCtx.fillStyle = text === 'ACTION!' ? '#34d399' : '#fbbf24';
+    hudOverlayCtx.shadowColor = text === 'ACTION!' ? '#10b981' : '#f59e0b';
+    hudOverlayCtx.shadowBlur = 15;
+
+    hudOverlayCtx.fillText(text, cx, cy - 60);
+    hudOverlayCtx.restore();
+  }
+
+  // 3. Render Hitmarker X if active
   if (hitmarkerOpacity > 0) {
     hudOverlayCtx.save();
     hudOverlayCtx.strokeStyle = `rgba(239, 68, 68, ${hitmarkerOpacity})`;
@@ -2569,12 +2674,15 @@ function damagePlayer(amount) {
     if (gameOverModal) gameOverModal.classList.remove('hidden');
 
     if (reviveBtn) {
-      if (gameState.cash >= 10000) {
+      if (gameState.freeRevivesAvailable > 0) {
         reviveBtn.disabled = false;
-        reviveBtn.textContent = '🚑 RESCUE & REVIVE ($10,000)';
+        reviveBtn.textContent = '🚑 EMERGENCY MEDICAL FIELD REVIVE (FREE - 1 LEFT)';
+      } else if (gameState.cash >= 1500) {
+        reviveBtn.disabled = false;
+        reviveBtn.textContent = '🚑 RESCUE & REVIVE ($1,500)';
       } else {
         reviveBtn.disabled = true;
-        reviveBtn.textContent = '🚑 REVIVE UNAVAILABLE (Need $10,000)';
+        reviveBtn.textContent = '🚑 REVIVE UNAVAILABLE (Need $1,500)';
       }
     }
     updateUI();
@@ -2592,7 +2700,12 @@ function handleShooterClick(event) {
     return; // Return early on re-focus click so the weapon does NOT fire on re-locking pointer
   }
 
-  if (!gameState.isRoundActive) {
+  if (gameState.isTutorialActive && gameState.tutorialStep === 2) {
+    gameState.tutorialStep = 3;
+    showToast('🎯 TUTORIAL STEP 3: Awesome shot! Press B to open the Armory Buy Menu!');
+  }
+
+  if (!gameState.isRoundActive && !gameState.isTutorialActive) {
     showToast('⚠️ Click "START NEXT ROUND" or open Buy Menu to prepare!');
     return;
   }
@@ -3144,6 +3257,11 @@ function checkRoundStatus() {
 }
 
 function openBuyMenu() {
+  if (gameState.isTutorialActive && gameState.tutorialStep === 3) {
+    gameState.tutorialStep = 4;
+    showToast('🎯 TUTORIAL STEP 4: Excellent! Purchase an item, then click "Complete Tutorial"!');
+  }
+
   if (document.exitPointerLock) document.exitPointerLock();
   buyMenuModal.classList.remove('hidden');
   updateBuyMenuUI();
@@ -3166,6 +3284,10 @@ function pauseGame() {
 function resumeGame() {
   isPaused = false;
   pauseModal.classList.add('hidden');
+  if (canvasContainer) canvasContainer.requestPointerLock();
+  if (gameState.isRoundActive) {
+    startUnpauseCountdown();
+  }
 }
 
 function exitGame() {
@@ -3239,8 +3361,18 @@ function restartGame() {
 function setupEventListeners() {
   if (reviveBtn) {
     reviveBtn.addEventListener('click', () => {
-      if (gameState.cash >= 10000) {
-        gameState.cash -= 10000;
+      if (gameState.freeRevivesAvailable > 0) {
+        gameState.freeRevivesAvailable -= 1;
+        gameState.health = gameState.maxHealth;
+        gameState.armor = gameState.maxArmor;
+        gameState.isRoundActive = true;
+        if (gameOverModal) gameOverModal.classList.add('hidden');
+        canvasContainer.requestPointerLock();
+        playSound('buy');
+        showToast('🚑 EMERGENCY MEDICAL FIELD REVIVE APPLIED!');
+        updateUI();
+      } else if (gameState.cash >= 1500) {
+        gameState.cash -= 1500;
         gameState.health = gameState.maxHealth;
         gameState.armor = gameState.maxArmor;
         gameState.isRoundActive = true;
@@ -3289,6 +3421,39 @@ function setupEventListeners() {
       canvasContainer.requestPointerLock();
       showToast('🚨 DEPLOYED ON DUTY! Good luck Officer.');
       playRadioChatter('All units, SWAT Team deployed on duty!');
+    });
+  }
+
+  const startTutorialBtn = document.getElementById('start-tutorial-btn');
+  const completeTutorialBtn = document.getElementById('complete-tutorial-btn');
+
+  if (startTutorialBtn) {
+    startTutorialBtn.addEventListener('click', () => {
+      gameState.isTutorialActive = true;
+      gameState.tutorialStep = 1;
+      currentMap = 'range';
+      const mapSelectEl = document.getElementById('map-select');
+      if (mapSelectEl) mapSelectEl.value = 'range';
+      createProceduralCity();
+      isGameStarted = true;
+      if (mainMenuModal) mainMenuModal.classList.add('hidden');
+      if (completeTutorialBtn) completeTutorialBtn.classList.remove('hidden');
+      canvasContainer.requestPointerLock();
+      showToast('🎯 TUTORIAL STEP 1: Practice moving around using WASD keys!');
+    });
+  }
+
+  if (completeTutorialBtn) {
+    completeTutorialBtn.addEventListener('click', () => {
+      gameState.isTutorialActive = false;
+      gameState.tutorialStep = 0;
+      completeTutorialBtn.classList.add('hidden');
+      currentMap = 'street';
+      const mapSelectEl = document.getElementById('map-select');
+      if (mapSelectEl) mapSelectEl.value = 'street';
+      createProceduralCity();
+      startNextRound();
+      showToast('🚀 TUTORIAL COMPLETED! DEPLOYED TO MAIN WAVE 1!');
     });
   }
   const camoBlackBtn = document.getElementById('camo-black-btn');
@@ -3585,6 +3750,10 @@ function setupEventListeners() {
   openBuyMenuBtn.addEventListener('click', openBuyMenu);
   closeBuyMenuBtn.addEventListener('click', () => {
     buyMenuModal.classList.add('hidden');
+    if (canvasContainer) canvasContainer.requestPointerLock();
+    if (gameState.isRoundActive) {
+      startUnpauseCountdown();
+    }
   });
 
   startRoundBtn.addEventListener('click', startNextRound);
@@ -3760,6 +3929,23 @@ function setupEventListeners() {
         document.body.classList.add(colorBlindMode);
       }
       showToast(`👁️ COLOR-BLIND MODE: ${e.target.options[e.target.selectedIndex].text}`);
+    });
+  }
+
+  const settingScreenShake = document.getElementById('setting-screen-shake');
+  const settingWeaponSway = document.getElementById('setting-weapon-sway');
+
+  if (settingScreenShake) {
+    settingScreenShake.addEventListener('change', (e) => {
+      gameState.enableScreenShake = e.target.checked;
+      showToast(e.target.checked ? '📳 Screen Shake Enabled' : '🚫 Screen Shake Disabled');
+    });
+  }
+
+  if (settingWeaponSway) {
+    settingWeaponSway.addEventListener('change', (e) => {
+      gameState.enableWeaponSway = e.target.checked;
+      showToast(e.target.checked ? '🏃 Weapon Sway Enabled' : '🚫 Weapon Sway Disabled');
     });
   }
 

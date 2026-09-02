@@ -996,8 +996,10 @@ body.tritanopia { filter: hue-rotate(180deg) saturate(1.2); }
   background: #0f172a;
   border: 1px solid #0284c7;
   border-radius: 16px;
-  padding: 2rem;
-  max-width: 500px;
+  padding: 1.75rem;
+  max-width: 540px;
+  max-height: 90vh;
+  overflow-y: auto;
   width: 90%;
   text-align: center;
   box-shadow: 0 25px 50px rgba(0, 0, 0, 0.95);
