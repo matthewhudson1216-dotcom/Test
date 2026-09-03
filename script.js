@@ -2019,6 +2019,14 @@ function animate() {
     obstacleMeshes.forEach(obs => {
       if (obs.userData && obs.userData.isTargetDummy) {
         obs.position.x += Math.sin(Date.now() * 0.003) * 0.015;
+
+        // Target Flip Rotation Animation on Hit
+        if (obs.userData.flipTimer && obs.userData.flipTimer > 0) {
+          obs.userData.flipTimer--;
+          obs.rotation.x = -Math.PI / 2.2;
+        } else {
+          obs.rotation.x = 0;
+        }
       }
     });
   }
@@ -3064,6 +3072,7 @@ function handleShooterClick(event) {
     if (hitEnemyIndex === -1 && wallHits.length > 0) {
       targetPoint = wallHits[0].point;
       checkDestructibleHit(wallHits[0].object, wpnDef.damage);
+      checkTargetDummyHit(wallHits[0].object);
     }
 
     spawnSparkParticles(targetPoint, wpnDef.color);
@@ -3275,6 +3284,10 @@ function reloadWeapon() {
 }
 
 function startNextRound() {
+  if (currentMap === 'range') {
+    showToast('🎯 PRACTICE MODE: Target practice active! Switch map to deploy waves.');
+    return;
+  }
   if (gameState.isRoundActive) return;
 
   gameState.isRoundActive = true;
@@ -3415,6 +3428,22 @@ function toggleBuyMenu() {
   }
 }
 
+function checkTargetDummyHit(hitObject) {
+  if (!hitObject) return false;
+  let target = hitObject;
+  while (target && (!target.userData || !target.userData.isTargetDummy) && target.parent && target !== scene) {
+    target = target.parent;
+  }
+  if (target && target.userData && target.userData.isTargetDummy) {
+    target.userData.flipTimer = 35;
+    triggerHitmarker(true);
+    const rect = renderer.domElement.getBoundingClientRect();
+    spawnFloatingText('🎯 TARGET HIT!', rect.width / 2, rect.height / 2, true);
+    return true;
+  }
+  return false;
+}
+
 function checkDestructibleHit(hitObject, damage) {
   if (!hitObject) return;
   let target = hitObject;
@@ -3505,6 +3534,10 @@ function togglePauseMenu() {
 function pauseGame() {
   isPaused = true;
   if (document.exitPointerLock) document.exitPointerLock();
+  if (startRoundBtn) {
+    if (currentMap === 'range') startRoundBtn.classList.add('hidden');
+    else startRoundBtn.classList.remove('hidden');
+  }
   pauseModal.classList.remove('hidden');
 }
 
@@ -3997,8 +4030,8 @@ function setupEventListeners() {
   if (buyWpnSmgBtn) {
     buyWpnSmgBtn.addEventListener('click', () => {
       if (!gameState.inventory.smg) {
-        if (gameState.cash >= 800) {
-          gameState.cash -= 800;
+        if (currentMap === 'range' || gameState.cash >= 800) {
+          if (currentMap !== 'range') gameState.cash -= 800;
           gameState.inventory.smg = true;
           playSound('buy');
           equipWeapon('smg');
@@ -4013,8 +4046,8 @@ function setupEventListeners() {
 
   buyWpnShotgunBtn.addEventListener('click', () => {
     if (!gameState.inventory.shotgun) {
-      if (gameState.cash >= 500) {
-        gameState.cash -= 500;
+      if (currentMap === 'range' || gameState.cash >= 500) {
+        if (currentMap !== 'range') gameState.cash -= 500;
         gameState.inventory.shotgun = true;
         playSound('buy');
         equipWeapon('shotgun');
@@ -4028,8 +4061,8 @@ function setupEventListeners() {
 
   buyWpnRifleBtn.addEventListener('click', () => {
     if (!gameState.inventory.rifle) {
-      if (gameState.cash >= 1200) {
-        gameState.cash -= 1200;
+      if (currentMap === 'range' || gameState.cash >= 1200) {
+        if (currentMap !== 'range') gameState.cash -= 1200;
         gameState.inventory.rifle = true;
         playSound('buy');
         equipWeapon('rifle');
@@ -4108,8 +4141,8 @@ function setupEventListeners() {
   if (buyAttReddotBtn) {
     buyAttReddotBtn.addEventListener('click', () => {
       if (!gameState.attachments.reddot) {
-        if (gameState.cash >= 200) {
-          gameState.cash -= 200;
+        if (currentMap === 'range' || gameState.cash >= 200) {
+          if (currentMap !== 'range') gameState.cash -= 200;
           gameState.attachments.reddot = true;
           playSound('buy');
           showToast('🔧 Red Dot Sight Mounted!');
@@ -4129,8 +4162,8 @@ function setupEventListeners() {
   if (buyAttLaserBtn) {
     buyAttLaserBtn.addEventListener('click', () => {
       if (!gameState.attachments.laser) {
-        if (gameState.cash >= 150) {
-          gameState.cash -= 150;
+        if (currentMap === 'range' || gameState.cash >= 150) {
+          if (currentMap !== 'range') gameState.cash -= 150;
           gameState.attachments.laser = true;
           playSound('buy');
           showToast('🔦 Tactical Laser Sight Mounted!');
@@ -4471,7 +4504,15 @@ function updateUI() {
   if (hudSmoke) hudSmoke.textContent = gameState.smokeGrenades;
   if (hudClaymores) hudClaymores.textContent = gameState.claymores;
 
-  startRoundBtn.disabled = gameState.isRoundActive;
+  const mainPauseTriggerBtn = document.getElementById('main-pause-trigger-btn');
+  if (currentMap === 'range') {
+    if (startRoundBtn) startRoundBtn.classList.add('hidden');
+    if (mainPauseTriggerBtn) mainPauseTriggerBtn.textContent = '⏸️ PAUSE MENU [ESC]';
+  } else {
+    if (startRoundBtn) startRoundBtn.classList.remove('hidden');
+    if (mainPauseTriggerBtn) mainPauseTriggerBtn.textContent = '⏸️ PAUSE / START ROUND [ESC]';
+    if (startRoundBtn) startRoundBtn.disabled = gameState.isRoundActive;
+  }
 }
 
 function executeKnifeDamageCheck() {
@@ -4531,7 +4572,7 @@ function performQuickMeleeKnife() {
 }
 
 function updateBuyMenuUI() {
-  buyMenuCash.textContent = `$${gameState.cash}`;
+  buyMenuCash.textContent = currentMap === 'range' ? 'FREE PRACTICE MODE' : `$${gameState.cash}`;
 
   // Pistol Button
   buyWpnPistolBtn.textContent = gameState.equippedWeapon === 'pistol' ? 'EQUIPPED' : 'EQUIP';
@@ -4541,9 +4582,9 @@ function updateBuyMenuUI() {
   const buyWpnSmgBtn = document.getElementById('buy-wpn-smg');
   if (buyWpnSmgBtn) {
     if (!gameState.inventory.smg) {
-      buyWpnSmgBtn.textContent = 'BUY ($800)';
+      buyWpnSmgBtn.textContent = currentMap === 'range' ? 'UNLOCK (FREE)' : 'BUY ($800)';
       buyWpnSmgBtn.className = 'buy-item-btn';
-      buyWpnSmgBtn.disabled = gameState.cash < 800;
+      buyWpnSmgBtn.disabled = currentMap === 'range' ? false : (gameState.cash < 800);
     } else {
       buyWpnSmgBtn.textContent = gameState.equippedWeapon === 'smg' ? 'EQUIPPED' : 'EQUIP';
       buyWpnSmgBtn.className = `buy-item-btn ${gameState.equippedWeapon === 'smg' ? 'equipped' : ''}`;
@@ -4553,9 +4594,9 @@ function updateBuyMenuUI() {
 
   // Shotgun Button
   if (!gameState.inventory.shotgun) {
-    buyWpnShotgunBtn.textContent = 'BUY ($500)';
+    buyWpnShotgunBtn.textContent = currentMap === 'range' ? 'UNLOCK (FREE)' : 'BUY ($500)';
     buyWpnShotgunBtn.className = 'buy-item-btn';
-    buyWpnShotgunBtn.disabled = gameState.cash < 500;
+    buyWpnShotgunBtn.disabled = currentMap === 'range' ? false : (gameState.cash < 500);
   } else {
     buyWpnShotgunBtn.textContent = gameState.equippedWeapon === 'shotgun' ? 'EQUIPPED' : 'EQUIP';
     buyWpnShotgunBtn.className = `buy-item-btn ${gameState.equippedWeapon === 'shotgun' ? 'equipped' : ''}`;
@@ -4564,9 +4605,9 @@ function updateBuyMenuUI() {
 
   // Rifle Button
   if (!gameState.inventory.rifle) {
-    buyWpnRifleBtn.textContent = 'BUY ($1,200)';
+    buyWpnRifleBtn.textContent = currentMap === 'range' ? 'UNLOCK (FREE)' : 'BUY ($1,200)';
     buyWpnRifleBtn.className = 'buy-item-btn';
-    buyWpnRifleBtn.disabled = gameState.cash < 1200;
+    buyWpnRifleBtn.disabled = currentMap === 'range' ? false : (gameState.cash < 1200);
   } else {
     buyWpnRifleBtn.textContent = gameState.equippedWeapon === 'rifle' ? 'EQUIPPED' : 'EQUIP';
     buyWpnRifleBtn.className = `buy-item-btn ${gameState.equippedWeapon === 'rifle' ? 'equipped' : ''}`;
@@ -4580,9 +4621,9 @@ function updateBuyMenuUI() {
       buyAttReddotBtn.className = 'buy-item-btn equipped';
       buyAttReddotBtn.disabled = false;
     } else {
-      buyAttReddotBtn.textContent = 'BUY ($200)';
+      buyAttReddotBtn.textContent = currentMap === 'range' ? 'MOUNT (FREE)' : 'BUY ($200)';
       buyAttReddotBtn.className = 'buy-item-btn';
-      buyAttReddotBtn.disabled = gameState.cash < 200;
+      buyAttReddotBtn.disabled = currentMap === 'range' ? false : (gameState.cash < 200);
     }
   }
 
@@ -4593,9 +4634,9 @@ function updateBuyMenuUI() {
       buyAttLaserBtn.className = 'buy-item-btn equipped';
       buyAttLaserBtn.disabled = false;
     } else {
-      buyAttLaserBtn.textContent = 'BUY ($150)';
+      buyAttLaserBtn.textContent = currentMap === 'range' ? 'MOUNT (FREE)' : 'BUY ($150)';
       buyAttLaserBtn.className = 'buy-item-btn';
-      buyAttLaserBtn.disabled = gameState.cash < 150;
+      buyAttLaserBtn.disabled = currentMap === 'range' ? false : (gameState.cash < 150);
     }
   }
 
