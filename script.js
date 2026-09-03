@@ -1615,16 +1615,31 @@ function createProceduralCity() {
     cityGroup.add(ground);
 
     const buildingMat = new THREE.MeshStandardMaterial({ map: buildingTex, metalness: 0.5, roughness: 0.4 });
-    for (let x = -20; x <= 20; x += 3.8) {
-      for (let z = -20; z <= 4; z += 3.8) {
-        if (Math.abs(x) < 3.2 && z > -6) continue;
-        const h = 3.0 + Math.random() * 7.0;
-        const bGeom = new THREE.BoxGeometry(2.6, h, 2.6);
-        const bMesh = new THREE.Mesh(bGeom, buildingMat);
-        bMesh.position.set(x + (Math.random() - 0.5) * 0.4, -1.2 + h / 2, z + (Math.random() - 0.5) * 0.4);
-        cityGroup.add(bMesh);
-        obstacleMeshes.push(bMesh);
-      }
+
+    // Outer Perimeter Building Walls (Left, Right, and North Backing)
+    for (let z = -14; z <= 8; z += 4.2) {
+      // Left Building Column
+      const hL = 6.0 + Math.random() * 6.0;
+      const bMeshL = new THREE.Mesh(new THREE.BoxGeometry(3.6, hL, 3.8), buildingMat);
+      bMeshL.position.set(-10.8, -1.2 + hL / 2, z);
+      cityGroup.add(bMeshL);
+      obstacleMeshes.push(bMeshL);
+
+      // Right Building Column
+      const hR = 6.0 + Math.random() * 6.0;
+      const bMeshR = new THREE.Mesh(new THREE.BoxGeometry(3.6, hR, 3.8), buildingMat);
+      bMeshR.position.set(10.8, -1.2 + hR / 2, z);
+      cityGroup.add(bMeshR);
+      obstacleMeshes.push(bMeshR);
+    }
+
+    // North Rear Perimeter Wall
+    for (let x = -10; x <= 10; x += 4.2) {
+      const hN = 8.0 + Math.random() * 5.0;
+      const bMeshN = new THREE.Mesh(new THREE.BoxGeometry(3.8, hN, 3.6), buildingMat);
+      bMeshN.position.set(x, -1.2 + hN / 2, -14.5);
+      cityGroup.add(bMeshN);
+      obstacleMeshes.push(bMeshN);
     }
   }
 
@@ -1814,8 +1829,8 @@ function spawnRobberEnemy() {
 
   robberGroup.add(hpBarGroup);
 
-  const spawnX = (Math.random() - 0.5) * 12;
-  const spawnZ = -8.0 - Math.random() * 4;
+  const spawnX = (Math.random() - 0.5) * 10.0;
+  const spawnZ = -8.0 - Math.random() * 3.5;
   robberGroup.position.set(spawnX, -0.9, spawnZ);
 
   let hp = 30 + gameState.round * 10;
@@ -3150,11 +3165,16 @@ function ejectShellCasing() {
 function fireBulletTracer(worldTargetPoint, hexColor) {
   if (!scene || !camera) return;
 
-  const geom = new THREE.CylinderGeometry(0.02, 0.02, 0.6, 6);
-  const mat = new THREE.MeshBasicMaterial({ color: hexColor });
-  const proj = new THREE.Mesh(geom, mat);
+  const group = new THREE.Group();
+  const geom = new THREE.CylinderGeometry(0.022, 0.022, 0.7, 8);
+  const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const outerMat = new THREE.MeshBasicMaterial({ color: hexColor, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending });
 
-  // Get barrel tip position in world space
+  const core = new THREE.Mesh(geom, coreMat);
+  const outer = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.72, 8), outerMat);
+  group.add(core);
+  group.add(outer);
+
   let barrelPos = new THREE.Vector3(0.24, -0.16, -0.6);
   if (muzzleFlashPoint) {
     muzzleFlashPoint.getWorldPosition(barrelPos);
@@ -3162,31 +3182,36 @@ function fireBulletTracer(worldTargetPoint, hexColor) {
     barrelPos = camera.position.clone();
   }
 
-  proj.position.copy(barrelPos);
-
+  group.position.copy(barrelPos);
   const dir = worldTargetPoint.clone().sub(barrelPos).normalize();
-  const vel = dir.multiplyScalar(0.7);
+  const vel = dir.multiplyScalar(0.85);
 
-  proj.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+  group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
 
-  scene.add(proj);
-  activeProjectiles.push({ mesh: proj, velocity: vel, life: 18 });
+  scene.add(group);
+  activeProjectiles.push({ mesh: group, velocity: vel, life: 18 });
   playSound(gameState.equippedWeapon);
 }
 
 function fireBulletTracerFromEnemy(startPos, targetPos, hexColor) {
   if (!scene) return;
-  const geom = new THREE.CylinderGeometry(0.02, 0.02, 0.6, 6);
-  const mat = new THREE.MeshBasicMaterial({ color: hexColor });
-  const proj = new THREE.Mesh(geom, mat);
+  const group = new THREE.Group();
+  const geom = new THREE.CylinderGeometry(0.022, 0.022, 0.7, 8);
+  const coreMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  const outerMat = new THREE.MeshBasicMaterial({ color: hexColor, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending });
 
-  proj.position.copy(startPos);
+  const core = new THREE.Mesh(geom, coreMat);
+  const outer = new THREE.Mesh(new THREE.CylinderGeometry(0.045, 0.045, 0.72, 8), outerMat);
+  group.add(core);
+  group.add(outer);
+
+  group.position.copy(startPos);
   const dir = targetPos.clone().sub(startPos).normalize();
-  const vel = dir.multiplyScalar(0.5);
+  const vel = dir.multiplyScalar(0.6);
 
-  proj.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
-  scene.add(proj);
-  activeProjectiles.push({ mesh: proj, velocity: vel, life: 18 });
+  group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir);
+  scene.add(group);
+  activeProjectiles.push({ mesh: group, velocity: vel, life: 18 });
 }
 
 function reloadWeapon() {
