@@ -1106,8 +1106,8 @@ function movePlayer(moveX, moveZ, dt = 0.016) {
   const moveVec = new THREE.Vector3(playerVelocity.x, 0, playerVelocity.z).multiplyScalar(dt);
   moveVec.applyAxisAngle(new THREE.Vector3(0, 1, 0), cameraRotation.yaw);
 
-  let targetX = Math.min(Math.max(-12.0, playerPos.x + moveVec.x), 12.0);
-  let targetZ = Math.min(Math.max(-8.0, playerPos.z + moveVec.z), 12.0);
+  let targetX = Math.min(Math.max(-13.5, playerPos.x + moveVec.x), 13.5);
+  let targetZ = Math.min(Math.max(-17.5, playerPos.z + moveVec.z), 11.5);
 
   let canMoveX = true;
   let canMoveZ = true;
@@ -1603,11 +1603,11 @@ function createProceduralCity() {
       destructibleMeshes.push(crateMesh);
     }
   } else {
-    // 🏙️ Precinct Plaza Street (Default)
+    // 🏙️ Precinct Plaza Street (Default) - Expanded City Layout
     const asphaltTex = createAsphaltTexture();
     const buildingTex = createBuildingTexture();
 
-    const groundGeom = new THREE.PlaneGeometry(50, 50);
+    const groundGeom = new THREE.PlaneGeometry(70, 70);
     const groundMat = new THREE.MeshStandardMaterial({ map: asphaltTex, roughness: 0.7 });
     const ground = new THREE.Mesh(groundGeom, groundMat);
     ground.rotation.x = -Math.PI / 2;
@@ -1615,29 +1615,59 @@ function createProceduralCity() {
     cityGroup.add(ground);
 
     const buildingMat = new THREE.MeshStandardMaterial({ map: buildingTex, metalness: 0.5, roughness: 0.4 });
+    const bankMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.3, metalness: 0.2 });
+    const goldMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.9, roughness: 0.1 });
 
-    // Outer Perimeter Building Walls (Left, Right, and North Backing)
-    for (let z = -14; z <= 8; z += 4.2) {
-      // Left Building Column
-      const hL = 6.0 + Math.random() * 6.0;
-      const bMeshL = new THREE.Mesh(new THREE.BoxGeometry(3.6, hL, 3.8), buildingMat);
-      bMeshL.position.set(-10.8, -1.2 + hL / 2, z);
+    // First National Bank Building Structure on Left Perimeter
+    const bankGroup = new THREE.Group();
+    const bankBody = new THREE.Mesh(new THREE.BoxGeometry(6.5, 9.0, 7.0), bankMat);
+    bankBody.position.set(-17.5, -1.2 + 4.5, -5.0);
+    bankGroup.add(bankBody);
+    obstacleMeshes.push(bankBody);
+
+    // Marble Pillars for Bank Entrance
+    for (let pz = -7.5; pz <= -2.5; pz += 2.5) {
+      const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 6.0, 16), bankMat);
+      pillar.position.set(-14.0, -1.2 + 3.0, pz);
+      bankGroup.add(pillar);
+      obstacleMeshes.push(pillar);
+    }
+
+    // Bank Gold Sign
+    const bankSign = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.8, 4.5), goldMat);
+    bankSign.position.set(-13.8, 3.2, -5.0);
+    bankGroup.add(bankSign);
+    cityGroup.add(bankGroup);
+
+    // Outer Perimeter Buildings with Varied Widths, Depths, and Heights
+    for (let z = -20; z <= 12; z += 5.2) {
+      if (z >= -8 && z <= -2) continue; // Skip space for First National Bank building
+
+      // Left Building Column (Outer perimeter outside x = -14.0)
+      const wL = 4.0 + Math.random() * 2.5;
+      const dL = 4.5 + Math.random() * 2.0;
+      const hL = 7.0 + Math.random() * 11.0;
+      const bMeshL = new THREE.Mesh(new THREE.BoxGeometry(wL, hL, dL), buildingMat);
+      bMeshL.position.set(-16.5, -1.2 + hL / 2, z);
       cityGroup.add(bMeshL);
       obstacleMeshes.push(bMeshL);
 
-      // Right Building Column
-      const hR = 6.0 + Math.random() * 6.0;
-      const bMeshR = new THREE.Mesh(new THREE.BoxGeometry(3.6, hR, 3.8), buildingMat);
-      bMeshR.position.set(10.8, -1.2 + hR / 2, z);
+      // Right Building Column (Outer perimeter outside x = +14.0)
+      const wR = 4.0 + Math.random() * 2.5;
+      const dR = 4.5 + Math.random() * 2.0;
+      const hR = 7.0 + Math.random() * 11.0;
+      const bMeshR = new THREE.Mesh(new THREE.BoxGeometry(wR, hR, dR), buildingMat);
+      bMeshR.position.set(16.5, -1.2 + hR / 2, z);
       cityGroup.add(bMeshR);
       obstacleMeshes.push(bMeshR);
     }
 
-    // North Rear Perimeter Wall
-    for (let x = -10; x <= 10; x += 4.2) {
-      const hN = 8.0 + Math.random() * 5.0;
-      const bMeshN = new THREE.Mesh(new THREE.BoxGeometry(3.8, hN, 3.6), buildingMat);
-      bMeshN.position.set(x, -1.2 + hN / 2, -14.5);
+    // North Rear Perimeter Wall Buildings (Outer perimeter outside z = -18.0)
+    for (let x = -15; x <= 15; x += 5.2) {
+      const wN = 4.8 + Math.random() * 2.0;
+      const hN = 9.0 + Math.random() * 10.0;
+      const bMeshN = new THREE.Mesh(new THREE.BoxGeometry(wN, hN, 4.5), buildingMat);
+      bMeshN.position.set(x, -1.2 + hN / 2, -20.5);
       cityGroup.add(bMeshN);
       obstacleMeshes.push(bMeshN);
     }
@@ -1829,8 +1859,8 @@ function spawnRobberEnemy() {
 
   robberGroup.add(hpBarGroup);
 
-  const spawnX = (Math.random() - 0.5) * 10.0;
-  const spawnZ = -8.0 - Math.random() * 3.5;
+  const spawnX = (Math.random() - 0.5) * 16.0;
+  const spawnZ = -10.0 - Math.random() * 5.0;
   robberGroup.position.set(spawnX, -0.9, spawnZ);
 
   let hp = 30 + gameState.round * 10;
@@ -3489,12 +3519,17 @@ function resumeGame() {
 
 function exitGame() {
   isPaused = false;
-  isGameExited = true;
+  isGameExited = false;
+  isGameStarted = false;
   if (document.exitPointerLock) document.exitPointerLock();
-  pauseModal.classList.add('hidden');
-  buyMenuModal.classList.add('hidden');
-  exitScreen.classList.remove('hidden');
-  gameState.isRoundActive = false;
+
+  if (pauseModal) pauseModal.classList.add('hidden');
+  if (buyMenuModal) buyMenuModal.classList.add('hidden');
+  if (exitScreen) exitScreen.classList.add('hidden');
+  if (mainMenuModal) mainMenuModal.classList.remove('hidden');
+
+  restartGame();
+  showToast('👋 RETURNED TO MAIN MENU');
 }
 
 function restartGame() {
