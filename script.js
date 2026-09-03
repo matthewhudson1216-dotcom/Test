@@ -85,7 +85,7 @@ const weaponsDef = {
     color: 0x10b981,
     reloadTime: 1200,
     isAuto: true,
-    fireRateMs: 90,
+    fireRateMs: 75,
     hipSpread: 14,
     adsSpread: 4,
     recoilKick: 0.8,
@@ -117,7 +117,7 @@ const weaponsDef = {
     color: 0xfbbf24,
     reloadTime: 1500,
     isAuto: true,
-    fireRateMs: 130,
+    fireRateMs: 125,
     hipSpread: 16,
     adsSpread: 3,
     recoilKick: 1.2,
@@ -3011,17 +3011,27 @@ function handleShooterClick(event) {
 
       if (hitEnemyIndex !== -1) {
         const enemy = activeEnemies[hitEnemyIndex];
-    roundStats.shotsHit += 1;
-    if (hitBodyPart === 'head') roundStats.headshots += 1;
+        roundStats.shotsHit += 1;
 
         let mult = 1.0;
-        if (hitBodyPart === 'head') mult = 2.0;
-        else if (hitBodyPart === 'limb') mult = 0.75;
+        let label = '';
+        if (hitBodyPart === 'head') {
+          mult = 2.0;
+          label = 'CRITICAL HEADSHOT! ';
+          roundStats.headshots += 1;
+        } else if (hitBodyPart === 'limb') {
+          mult = 0.75;
+          label = 'LIMB HIT ';
+        }
 
         const appliedDamage = Math.round(wpnDef.damage * mult);
+        roundStats.damageDealt += appliedDamage;
         enemy.hp -= appliedDamage;
         enemy.hitRecoil = 1.0;
         spawnBodyHitParticles(targetPoint, hitBodyPart === 'head');
+
+        spawnFloatingText(`${label}-${appliedDamage}`, screenCenterX, screenCenterY, hitBodyPart === 'head');
+        triggerHitmarker(hitBodyPart === 'head');
 
         if (enemy.hp <= 0) {
           scene.remove(enemy.mesh);
@@ -3042,7 +3052,6 @@ function handleShooterClick(event) {
         }
       }
     }
-    spawnFloatingText(`SHOTGUN BLAST!`, screenCenterX, screenCenterY, true);
     playSound('shotgun');
     ejectShellCasing();
   } else {
@@ -3840,7 +3849,7 @@ function setupEventListeners() {
 
       if (wpnDef.isAuto && !autoFireInterval) {
         autoFireInterval = setInterval(() => {
-          if (isPointerDown && gameState.isRoundActive && !isPaused && !isGameExited) {
+          if (isPointerDown && (gameState.isRoundActive || gameState.isTutorialActive || currentMap === 'range') && !isPaused && !isGameExited) {
             handleShooterClick(e);
           } else {
             stopAutoFire();
