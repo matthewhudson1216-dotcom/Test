@@ -99,7 +99,7 @@
           <div class="ammo-hud primary-ammo-hud">
             <div class="weapon-name" id="hud-weapon-name">SERVICE PISTOL</div>
             <div class="ammo-count"><span id="ammo-clip">12</span> / <span id="ammo-reserve">∞</span></div>
-            <div class="grenade-count">💣 FRAG: <span id="hud-grenades">2</span> [G] &nbsp;•&nbsp; 💨 SMOKE: <span id="hud-smoke">2</span> [J] &nbsp;•&nbsp; 💥 CLAYMORE: <span id="hud-claymores">2</span> [X]</div>
+            <div class="grenade-count">💣 FRAG: <span id="hud-grenades">2</span> [G] &nbsp;•&nbsp; ⚡ FLASH: <span id="hud-flashbangs">2</span> [K] &nbsp;•&nbsp; 💨 SMOKE: <span id="hud-smoke">2</span> [J] &nbsp;•&nbsp; 💥 CLAYMORE: <span id="hud-claymores">2</span> [X]</div>
           </div>
         </div>
 
@@ -107,6 +107,7 @@
         <div id="canvas-container" class="canvas-container shooter-canvas">
           <div id="floating-text-container" class="floating-text-container"></div>
           <div id="damage-vignette" class="damage-vignette hidden"></div>
+          <div id="flashbang-overlay" class="flashbang-overlay hidden"></div>
           <div id="armor-break-overlay" class="armor-break-overlay hidden"></div>
           <div id="threat-indicator-left" class="threat-indicator left hidden"></div>
           <div id="threat-indicator-right" class="threat-indicator right hidden"></div>
@@ -115,8 +116,9 @@
           <div id="nvg-overlay" class="nvg-overlay hidden"></div>
           <div id="hitmarker" class="hitmarker hidden"></div>
           <div id="controller-prompt-bar" class="controller-prompt-bar hidden">
-            <span>🎮 [LT] ADS</span> <span>[RT] FIRE</span> <span>[A] JUMP</span> <span>[B] CROUCH</span> <span>[X] RELOAD</span> <span>[Y] MELEE</span>
+            <span>🎮 [LT] ADS</span> <span>[RT] FIRE</span> <span>[A] JUMP</span> <span>[B] CROUCH</span> <span>[X] RELOAD</span> <span>[Y] MELEE</span> <span>[T] COMMAND</span>
           </div>
+          <div id="swat-command-hud-badge" class="swat-command-hud-badge">SWAT: 👥 REGROUP / FOLLOW [T]</div>
           <!-- 2D HUD Overlay Canvas for zero-thrash crosshair & hitmarker rendering -->
           <canvas id="hud-overlay-canvas" class="hud-overlay-canvas"></canvas>
           <!-- 2D Radar Overlay -->
@@ -130,6 +132,21 @@
         </div>
       </section>
     </main>
+  </div>
+
+  <!-- SWAT Squadmate Command Modal (Triggered by T Key) -->
+  <div id="swat-command-modal" class="modal-overlay hidden">
+    <div class="pause-card swat-command-card">
+      <h2>👥 SWAT SQUADMATE COMMANDS</h2>
+      <p class="pause-subtitle">Issue direct tactical orders to your AI SWAT partner [PRESS KEY 1-4 OR CLICK]:</p>
+      <div class="pause-btn-group">
+        <button id="cmd-follow-btn" class="pause-btn resume">1️⃣ 👣 REGROUP & FOLLOW ME</button>
+        <button id="cmd-defend-btn" class="pause-btn">2️⃣ 🛡️ HOLD POSITION & DEFEND AREA</button>
+        <button id="cmd-suppress-btn" class="pause-btn">3️⃣ 🔥 PROVIDE SUPPRESSIVE FIRE</button>
+        <button id="cmd-breach-btn" class="pause-btn danger">4️⃣ 🚪 BREACH & CLEAR FRONT</button>
+        <button id="close-swat-cmd-btn" class="pause-btn" style="margin-top: 0.5rem;">CLOSE COMMAND MENU [T / ESC]</button>
+      </div>
+    </div>
   </div>
 
   <!-- Full-Screen Tactical Map Overlay (Triggered by M Key) -->
@@ -271,6 +288,15 @@
 
           <div class="buy-item-card">
             <div class="buy-item-info">
+              <h4>⚡ Flashbang Grenades (+2)</h4>
+              <p>Blinds & disorients enemies for 3.5 seconds [K]</p>
+              <span class="item-cost">$250</span>
+            </div>
+            <button id="buy-flashbangs" class="buy-item-btn">BUY ($250)</button>
+          </div>
+
+          <div class="buy-item-card">
+            <div class="buy-item-info">
               <h4>Restock Frag Grenades</h4>
               <p>Restores +2 Fragmentation Grenades</p>
               <span class="item-cost">$200</span>
@@ -298,6 +324,24 @@
               <span class="item-cost">$150</span>
             </div>
             <button id="buy-att-laser" class="buy-item-btn">BUY ($150)</button>
+          </div>
+
+          <div class="buy-item-card">
+            <div class="buy-item-info">
+              <h4>Tactical Suppressor</h4>
+              <p>Muffles gunfire noise & stealth alert reduction</p>
+              <span class="item-cost">$250</span>
+            </div>
+            <button id="buy-att-suppressor" class="buy-item-btn">BUY ($250)</button>
+          </div>
+
+          <div class="buy-item-card">
+            <div class="buy-item-info">
+              <h4>Extended Drum Magazine</h4>
+              <p>+50% magazine clip capacity</p>
+              <span class="item-cost">$300</span>
+            </div>
+            <button id="buy-att-extmag" class="buy-item-btn">BUY ($300)</button>
           </div>
         </div>
       </div>

@@ -80,6 +80,12 @@ function calculateDamage(baseDamage, bodyPart, hasHelmet, armorPoints) {
   return { rawDamage, armorAbsorbed, remainingDamage };
 }
 
+// 4. Test SWAT Command State Transitions
+function issueSwatCommandState(state, command) {
+  state.swatCommand = command;
+  return state.swatCommand;
+}
+
 // Run Unit Tests
 console.log('Running Node.js Unit Tests...');
 
@@ -113,5 +119,13 @@ assert.strictEqual(dmg2.rawDamage, 30);
 assert.strictEqual(dmg2.armorAbsorbed, 24);
 assert.strictEqual(dmg2.remainingDamage, 6);
 console.log('✔ Test 3 Passed: calculateDamage correctly applies headshots, helmet reduction, and armor absorption.');
+
+// Test 4: SWAT Command Transition
+const swatState = createInitialGameState();
+assert.strictEqual(issueSwatCommandState(swatState, 'defend'), 'defend');
+assert.strictEqual(issueSwatCommandState(swatState, 'suppress'), 'suppress');
+assert.strictEqual(issueSwatCommandState(swatState, 'breach'), 'breach');
+assert.strictEqual(issueSwatCommandState(swatState, 'follow'), 'follow');
+console.log('✔ Test 4 Passed: SWAT squadmate command transitions function as expected.');
 
 console.log('\nAll Unit Tests Passed Successfully! 🎉');

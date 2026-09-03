@@ -30,13 +30,15 @@ function createInitialGameState() {
     xp: 0,
     rank: '🎖️ CADET',
     inventory: { pistol: true, smg: false, shotgun: false, rifle: false },
-    attachments: { reddot: false, laser: false },
+    attachments: { reddot: false, laser: false, suppressor: false, extmag: false },
     camos: { black: true, urban: true, gold: false },
     equippedCamo: 'black',
     equippedWeapon: 'pistol',
     hasKevlarHelmet: false,
     swatPartnerMode: 'squad',
+    swatCommand: 'follow',
     grenades: 2,
+    flashbangs: 2,
     smokeGrenades: 2,
     claymores: 2,
     ammo: {
@@ -195,6 +197,53 @@ function initAudio() {
   }
 }
 
+function issueSwatCommand(cmd) {
+  if (gameState.swatPartnerMode === 'solo') {
+    showToast('⚠️ SWAT Partner is disabled (Solo Duty Mode active).');
+    return;
+  }
+  gameState.swatCommand = cmd;
+  const badge = document.getElementById('swat-command-hud-badge');
+
+  if (cmd === 'follow') {
+    if (badge) badge.textContent = 'SWAT: 👥 REGROUP / FOLLOW [T]';
+    showToast('👥 SWAT COMMAND: "Regroup & Follow Me!"');
+    playVoiceCallout('swat_cover');
+  } else if (cmd === 'defend') {
+    if (swatPartnerMesh) swatDefendPosition = swatPartnerMesh.position.clone();
+    else swatDefendPosition = new THREE.Vector3(playerPos.x, -0.9, playerPos.z);
+    if (badge) badge.textContent = 'SWAT: 🛡️ HOLD & DEFEND AREA [T]';
+    showToast('🛡️ SWAT COMMAND: "Hold Position & Defend Area!"');
+    playVoiceCallout('swat_cover');
+  } else if (cmd === 'suppress') {
+    if (badge) badge.textContent = 'SWAT: 🔥 SUPPRESSIVE FIRE [T]';
+    showToast('🔥 SWAT COMMAND: "Provide Suppressive Fire!"');
+    playVoiceCallout('swat_cover');
+  } else if (cmd === 'breach') {
+    if (badge) badge.textContent = 'SWAT: 🚪 BREACH & CLEAR [T]';
+    showToast('🚪 SWAT COMMAND: "Breach & Clear Front!"');
+    playVoiceCallout('swat_cover');
+    if (gameState.flashbangs > 0) {
+      throwFlashbang();
+    }
+  }
+
+  const modal = document.getElementById('swat-command-modal');
+  if (modal) modal.classList.add('hidden');
+}
+
+function toggleSwatCommandModal() {
+  const modal = document.getElementById('swat-command-modal');
+  if (!modal) return;
+  if (modal.classList.contains('hidden')) {
+    if (document.exitPointerLock) document.exitPointerLock();
+    modal.classList.remove('hidden');
+  } else {
+    modal.classList.add('hidden');
+    if (canvasContainer) canvasContainer.requestPointerLock();
+  }
+}
+
 function playVoiceCallout(calloutType) {
   if (gameState.swatPartnerMode === 'solo' && calloutType.startsWith('swat')) {
     return;
@@ -227,6 +276,74 @@ function playVoiceCallout(calloutType) {
   }
 }
 
+function triggerFlashbangOverlay() {
+  const overlay = document.getElementById('flashbang-overlay');
+  if (overlay) {
+    overlay.classList.remove('hidden');
+    overlay.style.opacity = '1.0';
+    setTimeout(() => {
+      overlay.style.opacity = '0';
+      setTimeout(() => overlay.classList.add('hidden'), 1200);
+    }, 1500);
+  }
+}
+
+function throwFlashbang() {
+  if (gameState.flashbangs <= 0) {
+    showToast('⚠️ OUT OF FLASHBANG GRENADES! Restock in Armory.');
+    return;
+  }
+  if (!gameState.isRoundActive || isPaused || isGameExited) return;
+
+  gameState.flashbangs -= 1;
+  updateUI();
+  showToast('⚡ FLASHBANG OUT!');
+
+  const flashGeom = new THREE.CylinderGeometry(0.08, 0.08, 0.22, 10);
+  const flashMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.9 });
+  const flashMesh = new THREE.Mesh(flashGeom, flashMat);
+
+  let startPos = camera.position.clone();
+  flashMesh.position.copy(startPos);
+  scene.add(flashMesh);
+
+  const euler = new THREE.Euler(cameraRotation.pitch, cameraRotation.yaw, 0, 'YXZ');
+  const dir = new THREE.Vector3(0, 0, -1).applyEuler(euler);
+
+  let throwVelocity = dir.multiplyScalar(0.35);
+  throwVelocity.y += 0.14;
+
+  let ticks = 0;
+  const throwInterval = setInterval(() => {
+    ticks += 1;
+    flashMesh.position.add(throwVelocity);
+    throwVelocity.y -= 0.015;
+
+    if (flashMesh.position.y <= -0.9 || ticks > 35) {
+      clearInterval(throwInterval);
+      triggerFlashbangDetonation(flashMesh.position);
+      scene.remove(flashMesh);
+    }
+  }, 30);
+}
+
+function triggerFlashbangDetonation(pos) {
+  playSound('explosion');
+
+  if (camera.position.distanceTo(pos) < 18.0) {
+    triggerFlashbangOverlay();
+  }
+
+  activeEnemies.forEach(enemy => {
+    if (enemy.mesh.position.distanceTo(pos) <= 12.0) {
+      enemy.flashTimer = 210; // Disoriented for 3.5 seconds
+      enemy.hitRecoil = 1.5;
+    }
+  });
+
+  showToast('⚡ FLASHBANG DETONATED! Nearby enemies blinded & disoriented!');
+}
+
 function playSound(type) {
   if (gameState.sfxMuted || sfxVolume <= 0) return;
 
@@ -246,7 +363,48 @@ function playSound(type) {
   playSyntheticSound(type);
 }
 
-function playSyntheticSound(type) {
+let musicSynthInterval = null;
+let musicStepCounter = 0;
+
+function startAdaptiveSoundtrack() {
+  if (musicSynthInterval) return;
+
+  musicSynthInterval = setInterval(() => {
+    if (gameState.sfxMuted || musicVolume <= 0 || masterVolume <= 0 || !isGameStarted || isPaused || isGameExited) return;
+    initAudio();
+    if (!audioCtx) return;
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+
+    musicStepCounter++;
+    const now = audioCtx.currentTime;
+
+    // Tactical synth bassline pitch sequence
+    const isCombat = gameState.isRoundActive && activeEnemies.length > 0;
+    const tempo = isCombat ? 160 : 320; // Fast 160ms beat in combat, calmer in menu/intermission
+
+    if (musicStepCounter % (isCombat ? 1 : 2) === 0) {
+      const notes = isCombat ? [110, 110, 130.81, 146.83, 110, 98, 110, 164.81] : [82.41, 82.41, 98, 82.41];
+      const freq = notes[musicStepCounter % notes.length];
+
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = isCombat ? 'sawtooth' : 'triangle';
+      osc.frequency.setValueAtTime(freq, now);
+      osc.frequency.exponentialRampToValueAtTime(freq * 0.5, now + 0.12);
+
+      const volMult = musicVolume * masterVolume * (isCombat ? 0.08 : 0.04);
+      gain.gain.setValueAtTime(volMult, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.12);
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.12);
+    }
+  }, 160);
+}
+
+function playSyntheticSound(type, worldPos = null) {
   if (gameState.sfxMuted || sfxVolume <= 0) return;
   initAudio();
   if (!audioCtx) return;
@@ -254,8 +412,29 @@ function playSyntheticSound(type) {
 
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
-  osc.connect(gain);
-  gain.connect(audioCtx.destination);
+
+  // 3D Spatial Audio Panner Node calculation if position supplied
+  if (worldPos && audioCtx.createPanner) {
+    const panner = audioCtx.createPanner();
+    panner.panningModel = 'HRTF';
+    panner.distanceModel = 'inverse';
+    panner.refDistance = 2.0;
+    panner.maxDistance = 40.0;
+    panner.rolloffFactor = 1.0;
+
+    const dx = worldPos.x - playerPos.x;
+    const dy = worldPos.y - playerPos.y;
+    const dz = worldPos.z - playerPos.z;
+    panner.setPosition(dx, dy, dz);
+
+    osc.connect(gain);
+    gain.connect(panner);
+    panner.connect(audioCtx.destination);
+  } else {
+    osc.connect(gain);
+    gain.connect(audioCtx.destination);
+  }
+
   const volMult = sfxVolume * masterVolume;
 
   const now = audioCtx.currentTime;
@@ -461,6 +640,48 @@ const damageVignetteEl = document.getElementById('damage-vignette');
 const bloodSplatterEl = document.getElementById('blood-splatter-overlay');
 let heartbeatTimer = 0;
 let slowMoTimer = 0;
+let isKillCamActive = false;
+let killCamTimer = 0;
+let killCamTargetPos = null;
+let savedCamPos = null;
+let savedCamRotation = null;
+
+function triggerFinalKillCam(lastEnemyPos, callback) {
+  if (isKillCamActive || !lastEnemyPos) {
+    if (callback) callback();
+    return;
+  }
+
+  isKillCamActive = true;
+  killCamTimer = 90; // ~1.5s slow-motion replay duration
+  killCamTargetPos = lastEnemyPos.clone();
+  savedCamPos = camera.position.clone();
+  savedCamRotation = { yaw: cameraRotation.yaw, pitch: cameraRotation.pitch };
+
+  playSound('slowmo');
+  showToast('🎬 FINAL KILL-CAM REPLAY!');
+
+  const camOrbitOffset = new THREE.Vector3(0, 1.2, 2.8);
+  const killCamCamPos = lastEnemyPos.clone().add(camOrbitOffset);
+
+  const killCamInterval = setInterval(() => {
+    killCamTimer--;
+
+    // Smoothly lerp camera to enemy position
+    camera.position.lerp(killCamCamPos, 0.12);
+    camera.lookAt(lastEnemyPos.clone().add(new THREE.Vector3(0, 0.4, 0)));
+
+    if (killCamTimer <= 0) {
+      clearInterval(killCamInterval);
+      camera.position.copy(savedCamPos);
+      cameraRotation.yaw = savedCamRotation.yaw;
+      cameraRotation.pitch = savedCamRotation.pitch;
+      updateCameraTransform();
+      isKillCamActive = false;
+      if (callback) callback();
+    }
+  }, 16);
+}
 
 function triggerSlowMotionEffect() {
   slowMoTimer = 35;
@@ -510,6 +731,7 @@ let activeEnemies = [];
 let activeProjectiles = [];
 let activeSmokeClouds = [];
 let barricadeObstacles = [];
+let streetLamps = [];
 let currentMap = 'street';
 let obstacleMeshes = [];
 let destructibleMeshes = [];
@@ -517,6 +739,7 @@ let activeHostage = null;
 let extractionZoneMesh = null;
 let swatPartnerMesh = null;
 let swatPartnerTimer = 0;
+let swatDefendPosition = null;
 let enemiesToSpawnInRound = 0;
 let raycaster, mouse;
 let careerStats = JSON.parse(localStorage.getItem('cop_career_stats') || '{"highestRound": 1, "totalKills": 0, "headshots": 0, "hostages": 0}');
@@ -750,6 +973,7 @@ function init() {
   setupEventListeners();
   updateUI();
   updateLeaderboardUI();
+  startAdaptiveSoundtrack();
   showToast('👋 Welcome Officer! Move with WASD, Aim & Click to Shoot.');
 }
 
@@ -898,6 +1122,23 @@ function updateFPSWeaponMesh() {
     laserBeam.position.set(0, 0, -5);
     group.add(laserBeam);
   }
+
+    // Optional Tactical Suppressor Attachment Mesh
+    if (gameState.attachments.suppressor) {
+      const suppGeom = new THREE.CylinderGeometry(0.032, 0.032, 0.28, 12);
+      const suppMat = new THREE.MeshStandardMaterial({ color: 0x020617, roughness: 0.2, metalness: 0.9 });
+      const suppMesh = new THREE.Mesh(suppGeom, suppMat);
+      suppMesh.rotation.x = Math.PI / 2;
+
+      let suppZ = -0.52;
+      if (type === 'smg') suppZ = -0.52;
+      else if (type === 'shotgun') suppZ = -0.68;
+      else if (type === 'rifle') suppZ = -0.82;
+      else if (type === 'pistol') suppZ = -0.36;
+
+      suppMesh.position.set(0, 0.045, suppZ);
+      group.add(suppMesh);
+    }
 
   // Optional Red Dot Sight Optic
   if (gameState.attachments.reddot) {
@@ -1717,6 +1958,42 @@ function createProceduralCity() {
     barricadeObstacles.push(carBox);
   }
 
+  // Shootable Tactical Street Lamps
+  streetLamps = [];
+  const lampPositions = [
+    { x: -9.0, z: -8.0 },
+    { x: -9.0, z: 4.0 },
+    { x: 9.0, z: -8.0 },
+    { x: 9.0, z: 4.0 }
+  ];
+
+  lampPositions.forEach(lp => {
+    const lampGroup = new THREE.Group();
+
+    const poleGeom = new THREE.CylinderGeometry(0.08, 0.1, 3.8, 10);
+    const poleMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.3 });
+    const pole = new THREE.Mesh(poleGeom, poleMat);
+    pole.position.y = 0.7;
+    lampGroup.add(pole);
+
+    const bulbGeom = new THREE.SphereGeometry(0.22, 12, 12);
+    const bulbMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, emissive: 0xfbbf24, emissiveIntensity: 1.0 });
+    const bulbMesh = new THREE.Mesh(bulbGeom, bulbMat);
+    bulbMesh.position.y = 2.6;
+    lampGroup.add(bulbMesh);
+
+    const lampLight = new THREE.PointLight(0xfbbf24, 2.5, 12);
+    lampLight.position.set(lp.x, 1.4, lp.z);
+    scene.add(lampLight);
+
+    bulbMesh.userData = { isShootableLight: true, lightRef: lampLight, bulbMat };
+
+    lampGroup.position.set(lp.x, -0.9, lp.z);
+    cityGroup.add(lampGroup);
+    obstacleMeshes.push(bulbMesh);
+    streetLamps.push({ group: lampGroup, bulbMesh, light: lampLight, isDestroyed: false });
+  });
+
   scene.add(cityGroup);
 }
 
@@ -2150,17 +2427,25 @@ function animate() {
     const closestDist = swatPartnerMesh.targetDist || Infinity;
     const swatEye = swatPartnerMesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
 
-    // Independent Tactical Navigation Movement
+    // Independent Tactical Navigation Movement based on Command State
     let swatMoveTarget = null;
-    if (closestEnemy) {
+    const cmd = gameState.swatCommand || 'follow';
+
+    if (cmd === 'defend' && swatDefendPosition) {
+      swatMoveTarget = swatDefendPosition.clone();
+    } else if (cmd === 'breach' && closestEnemy) {
+      swatMoveTarget = closestEnemy.mesh.position.clone();
+    } else if (closestEnemy) {
       const distToEnemy = swatPartnerMesh.position.distanceTo(closestEnemy.mesh.position);
       if (distToEnemy > 4.5) {
         swatMoveTarget = closestEnemy.mesh.position.clone();
       }
     } else {
-      const patrolX = Math.sin(swatPartnerTimer * 0.02) * 5.0;
-      const patrolZ = -4.0 + Math.cos(swatPartnerTimer * 0.02) * 3.0;
-      swatMoveTarget = new THREE.Vector3(patrolX, -0.9, patrolZ);
+      // Follow player position at 2.5m distance
+      const playerTarget = new THREE.Vector3(playerPos.x - 1.5, -0.9, playerPos.z + 1.2);
+      if (swatPartnerMesh.position.distanceTo(playerTarget) > 1.8) {
+        swatMoveTarget = playerTarget;
+      }
     }
 
     if (swatMoveTarget) {
@@ -2188,7 +2473,8 @@ function animate() {
     if (closestEnemy && closestDist < 18) {
       swatPartnerMesh.lookAt(closestEnemy.mesh.position);
 
-      if (swatPartnerTimer % 45 === 0) {
+      const fireInterval = (cmd === 'suppress') ? 20 : 45;
+      if (swatPartnerTimer % fireInterval === 0) {
         const enemyEye = closestEnemy.mesh.position.clone().add(new THREE.Vector3(0, 0.5, 0));
 
         fireBulletTracerFromEnemy(swatEye, enemyEye, 0x38bdf8);
@@ -3001,6 +3287,7 @@ function handleShooterClick(event) {
 
       if (hitEnemyIndex === -1 && wallHits.length > 0) {
         targetPoint = wallHits[0].point;
+        checkShootableLightHit(wallHits[0].object);
         checkDestructibleHit(wallHits[0].object, wpnDef.damage);
       }
 
@@ -3035,6 +3322,7 @@ function handleShooterClick(event) {
 
         if (enemy.hp <= 0) {
           scene.remove(enemy.mesh);
+          const enemyPos = enemy.mesh.position.clone();
           const enemyIdx = activeEnemies.indexOf(enemy);
           if (enemyIdx !== -1) activeEnemies.splice(enemyIdx, 1);
           const reward = 100 + gameState.round * 20;
@@ -3044,7 +3332,7 @@ function handleShooterClick(event) {
           if (hitBodyPart === 'head') careerStats.headshots += 1;
           saveCareerStats();
           spawnFloatingText(`+$${reward}`, screenCenterX, screenCenterY, false);
-          checkRoundStatus();
+          checkRoundStatus(enemyPos);
         } else {
           const hpRatio = Math.max(0, enemy.hp / enemy.maxHp);
           enemy.hpBarFill.scale.x = hpRatio;
@@ -3078,10 +3366,27 @@ function handleShooterClick(event) {
       }
     }
 
+    const canPenetrateWalls = (currentWpnKey === 'rifle' || currentWpnKey === 'shotgun');
+
     if (hitEnemyIndex === -1 && wallHits.length > 0) {
       targetPoint = wallHits[0].point;
-      checkDestructibleHit(wallHits[0].object, wpnDef.damage);
+      checkShootableLightHit(wallHits[0].object);
+      const wasDestructible = checkDestructibleHit(wallHits[0].object, wpnDef.damage);
       checkTargetDummyHit(wallHits[0].object);
+
+      if (canPenetrateWalls && wasDestructible) {
+        for (let i = activeEnemies.length - 1; i >= 0; i--) {
+          const enemy = activeEnemies[i];
+          const intersects = raycaster.intersectObject(enemy.mesh, true);
+          if (intersects.length > 0) {
+            hitEnemyIndex = i;
+            if (intersects[0].object && intersects[0].object.userData.bodyPart) {
+              hitBodyPart = intersects[0].object.userData.bodyPart;
+            }
+            break;
+          }
+        }
+      }
     }
 
     spawnSparkParticles(targetPoint, wpnDef.color);
@@ -3115,6 +3420,7 @@ function handleShooterClick(event) {
       triggerHitmarker(hitBodyPart === 'head');
 
       if (enemy.hp <= 0) {
+        const enemyPos = enemy.mesh.position.clone();
         scene.remove(enemy.mesh);
         activeEnemies.splice(hitEnemyIndex, 1);
         const reward = 100 + gameState.round * 20;
@@ -3124,7 +3430,7 @@ function handleShooterClick(event) {
         if (hitBodyPart === 'head') careerStats.headshots += 1;
         saveCareerStats();
         spawnFloatingText(`+$${reward}`, screenCenterX, screenCenterY, false);
-        checkRoundStatus();
+        checkRoundStatus(enemyPos);
       } else {
         const hpRatio = Math.max(0, enemy.hp / enemy.maxHp);
         enemy.hpBarFill.scale.x = hpRatio;
@@ -3437,6 +3743,29 @@ function toggleBuyMenu() {
   }
 }
 
+function checkShootableLightHit(hitObject) {
+  if (!hitObject) return false;
+  let target = hitObject;
+  while (target && (!target.userData || !target.userData.isShootableLight) && target.parent && target !== scene) {
+    target = target.parent;
+  }
+  if (target && target.userData && target.userData.isShootableLight) {
+    if (target.userData.lightRef) {
+      target.userData.lightRef.intensity = 0;
+    }
+    if (target.userData.bulbMat) {
+      target.userData.bulbMat.color.setHex(0x1e293b);
+      target.userData.bulbMat.emissive.setHex(0x000000);
+      target.userData.bulbMat.emissiveIntensity = 0;
+    }
+    spawnSparkParticles(target.getWorldPosition(new THREE.Vector3()), 0xfbbf24);
+    playSound('hit');
+    showToast('💡 LIGHT SHOT OUT! Area darkened (Use NVG or Flashlight)');
+    return true;
+  }
+  return false;
+}
+
 function checkTargetDummyHit(hitObject) {
   if (!hitObject) return false;
   let target = hitObject;
@@ -3454,15 +3783,16 @@ function checkTargetDummyHit(hitObject) {
 }
 
 function checkDestructibleHit(hitObject, damage) {
-  if (!hitObject) return;
+  if (!hitObject) return false;
   let target = hitObject;
-  while (target && !target.userData.isDestructible && target.parent && target !== scene) {
+  while (target && (!target.userData || !target.userData.isDestructible) && target.parent && target !== scene) {
     target = target.parent;
   }
   if (target && target.userData && target.userData.isDestructible) {
+    const isGlass = target.userData.destructColor === 0x38bdf8;
+    spawnSparkParticles(target.position, target.userData.destructColor || 0xd97706, isGlass ? 'glass' : 'wood');
     target.userData.hp -= damage;
     if (target.userData.hp <= 0) {
-      spawnSparkParticles(target.position, target.userData.destructColor || 0xd97706);
       playSound('explosion');
       showToast('💥 DESTRUCTIBLE COVER BROKEN!');
       if (cityGroup) cityGroup.remove(target);
@@ -3471,7 +3801,9 @@ function checkDestructibleHit(hitObject, damage) {
       const destIdx = destructibleMeshes.indexOf(target);
       if (destIdx !== -1) destructibleMeshes.splice(destIdx, 1);
     }
+    return true;
   }
+  return false;
 }
 
 function showAfterActionReport(roundBonus) {
@@ -3495,29 +3827,38 @@ function showAfterActionReport(roundBonus) {
   roundStats = { shotsFired: 0, shotsHit: 0, headshots: 0, damageDealt: 0, cashEarned: 0 };
 }
 
-function checkRoundStatus() {
+function checkRoundStatus(lastEnemyPos = null) {
   if (gameState.isRoundActive && activeEnemies.length === 0 && enemiesToSpawnInRound === 0) {
-    triggerSlowMotionEffect();
     gameState.isRoundActive = false;
-    let roundBonus = 300 + gameState.round * 150;
 
-    if (isVaultDefenseActive && vaultHp > 0) {
-      roundBonus += 800;
-      showToast('🏦 VAULT DEFENDED INTACT! Earned +$800 Vault Defense Bonus!');
-      playRadioChatter('Vault secure! Outstanding precinct defense officer!');
-      if (vaultMesh) scene.remove(vaultMesh);
-      vaultMesh = null;
-      isVaultDefenseActive = false;
+    const finishRoundLogic = () => {
+      let roundBonus = 300 + gameState.round * 150;
+
+      if (isVaultDefenseActive && vaultHp > 0) {
+        roundBonus += 800;
+        showToast('🏦 VAULT DEFENDED INTACT! Earned +$800 Vault Defense Bonus!');
+        playRadioChatter('Vault secure! Outstanding precinct defense officer!');
+        if (vaultMesh) scene.remove(vaultMesh);
+        vaultMesh = null;
+        isVaultDefenseActive = false;
+      }
+
+      gameState.cash += roundBonus;
+      gameState.round += 1;
+      careerStats.highestRound = Math.max(careerStats.highestRound, gameState.round);
+      saveCareerStats();
+
+      showToast(`🎉 ROUND COMPLETED! Earned +$${roundBonus} Intermission Bonus!`);
+      showAfterActionReport(roundBonus);
+      updateUI();
+    };
+
+    if (lastEnemyPos) {
+      triggerFinalKillCam(lastEnemyPos, finishRoundLogic);
+    } else {
+      triggerSlowMotionEffect();
+      finishRoundLogic();
     }
-
-    gameState.cash += roundBonus;
-    gameState.round += 1;
-    careerStats.highestRound = Math.max(careerStats.highestRound, gameState.round);
-    saveCareerStats();
-
-    showToast(`🎉 ROUND COMPLETED! Earned +$${roundBonus} Intermission Bonus!`);
-    showAfterActionReport(roundBonus);
-    updateUI();
   }
 }
 
@@ -3682,6 +4023,18 @@ function setupEventListeners() {
   if (settingPartnerSelect) {
     settingPartnerSelect.addEventListener('change', (e) => syncPartnerMode(e.target.value));
   }
+  const cmdFollowBtn = document.getElementById('cmd-follow-btn');
+  const cmdDefendBtn = document.getElementById('cmd-defend-btn');
+  const cmdSuppressBtn = document.getElementById('cmd-suppress-btn');
+  const cmdBreachBtn = document.getElementById('cmd-breach-btn');
+  const closeSwatCmdBtn = document.getElementById('close-swat-cmd-btn');
+
+  if (cmdFollowBtn) cmdFollowBtn.addEventListener('click', () => issueSwatCommand('follow'));
+  if (cmdDefendBtn) cmdDefendBtn.addEventListener('click', () => issueSwatCommand('defend'));
+  if (cmdSuppressBtn) cmdSuppressBtn.addEventListener('click', () => issueSwatCommand('suppress'));
+  if (cmdBreachBtn) cmdBreachBtn.addEventListener('click', () => issueSwatCommand('breach'));
+  if (closeSwatCmdBtn) closeSwatCmdBtn.addEventListener('click', () => toggleSwatCommandModal());
+
   if (closeStatsBtn) {
     closeStatsBtn.addEventListener('click', () => {
       if (roundStatsModal) roundStatsModal.classList.add('hidden');
@@ -3943,11 +4296,26 @@ function setupEventListeners() {
       return;
     }
 
+    if (e.code === 'KeyT' || e.code === 'Keyt' || e.key === 't' || e.key === 'T') {
+      if (!isGameExited) {
+        toggleSwatCommandModal();
+      }
+      return;
+    }
+
     if (e.code === 'KeyV' || e.code === 'Keyv' || e.key === 'v' || e.key === 'V') {
       if (!isGameExited) {
         performQuickMeleeKnife();
       }
       return;
+    }
+
+    const swatModalEl = document.getElementById('swat-command-modal');
+    if (swatModalEl && !swatModalEl.classList.contains('hidden')) {
+      if (e.code === 'Digit1' || e.code === 'Numpad1') { issueSwatCommand('follow'); return; }
+      if (e.code === 'Digit2' || e.code === 'Numpad2') { issueSwatCommand('defend'); return; }
+      if (e.code === 'Digit3' || e.code === 'Numpad3') { issueSwatCommand('suppress'); return; }
+      if (e.code === 'Digit4' || e.code === 'Numpad4') { issueSwatCommand('breach'); return; }
     }
 
     if (e.code === 'KeyM' || e.code === 'Keym' || e.key === 'm' || e.key === 'M') {
@@ -3980,7 +4348,10 @@ function setupEventListeners() {
 
     if (e.code === 'Escape') {
       if (!isGameExited) {
-        if (!tacticalMapModal.classList.contains('hidden')) {
+        const swatModal = document.getElementById('swat-command-modal');
+        if (swatModal && !swatModal.classList.contains('hidden')) {
+          swatModal.classList.add('hidden');
+        } else if (!tacticalMapModal.classList.contains('hidden')) {
           tacticalMapModal.classList.add('hidden');
         } else {
           togglePauseMenu();
@@ -4184,6 +4555,75 @@ function setupEventListeners() {
         showToast('🔦 Tactical Laser Sight Removed.');
       }
       updateFPSWeaponMesh();
+      updateUI();
+      updateBuyMenuUI();
+    });
+  }
+
+  const buyFlashbangsBtn = document.getElementById('buy-flashbangs');
+  if (buyFlashbangsBtn) {
+    buyFlashbangsBtn.addEventListener('click', () => {
+      if (currentMap === 'range' || gameState.cash >= 250) {
+        if (currentMap !== 'range') gameState.cash -= 250;
+        gameState.flashbangs += 2;
+        playSound('buy');
+        showToast('⚡ Restocked +2 Flashbang Grenades!');
+        updateUI();
+        updateBuyMenuUI();
+      } else {
+        showToast('❌ Not enough cash for Flashbangs ($250)!');
+      }
+    });
+  }
+
+  const buyAttSuppressorBtn = document.getElementById('buy-att-suppressor');
+  if (buyAttSuppressorBtn) {
+    buyAttSuppressorBtn.addEventListener('click', () => {
+      if (!gameState.attachments.suppressor) {
+        if (currentMap === 'range' || gameState.cash >= 250) {
+          if (currentMap !== 'range') gameState.cash -= 250;
+          gameState.attachments.suppressor = true;
+          playSound('buy');
+          showToast('🔇 Tactical Suppressor Mounted!');
+        } else {
+          showToast('❌ Not enough cash for Suppressor ($250)!');
+        }
+      } else {
+        gameState.attachments.suppressor = false;
+        showToast('🔇 Tactical Suppressor Removed.');
+      }
+      updateFPSWeaponMesh();
+      updateUI();
+      updateBuyMenuUI();
+    });
+  }
+
+  const buyAttExtMagBtn = document.getElementById('buy-att-extmag');
+  if (buyAttExtMagBtn) {
+    buyAttExtMagBtn.addEventListener('click', () => {
+      if (!gameState.attachments.extmag) {
+        if (currentMap === 'range' || gameState.cash >= 300) {
+          if (currentMap !== 'range') gameState.cash -= 300;
+          gameState.attachments.extmag = true;
+          Object.keys(gameState.ammo).forEach(key => {
+            const baseMax = weaponsDef[key] ? weaponsDef[key].magazineSize || 12 : 12;
+            gameState.ammo[key].maxClip = Math.round(baseMax * 1.5);
+            gameState.ammo[key].clip = gameState.ammo[key].maxClip;
+          });
+          playSound('buy');
+          showToast('🔋 Extended Drum Magazine Mounted (+50% Clip)!');
+        } else {
+          showToast('❌ Not enough cash for Extended Mag ($300)!');
+        }
+      } else {
+        gameState.attachments.extmag = false;
+        Object.keys(gameState.ammo).forEach(key => {
+          const baseMax = weaponsDef[key] ? weaponsDef[key].magazineSize || 12 : 12;
+          gameState.ammo[key].maxClip = baseMax;
+          gameState.ammo[key].clip = Math.min(gameState.ammo[key].clip, baseMax);
+        });
+        showToast('🔋 Extended Drum Magazine Removed.');
+      }
       updateUI();
       updateBuyMenuUI();
     });
@@ -4509,6 +4949,8 @@ function updateUI() {
   hudWeaponName.textContent = weaponsDef[wpnKey].name.toUpperCase();
   ammoClip.textContent = gameState.ammo[wpnKey].clip;
   ammoReserve.textContent = gameState.ammo[wpnKey].reserve === Infinity ? '∞' : gameState.ammo[wpnKey].reserve;
+  const hudFlash = document.getElementById('hud-flashbangs');
+  if (hudFlash) hudFlash.textContent = gameState.flashbangs;
   if (hudGrenades) hudGrenades.textContent = gameState.grenades;
   if (hudSmoke) hudSmoke.textContent = gameState.smokeGrenades;
   if (hudClaymores) hudClaymores.textContent = gameState.claymores;
