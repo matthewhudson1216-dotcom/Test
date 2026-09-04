@@ -2143,7 +2143,7 @@ function spawnRobberEnemy() {
   robberGroup.position.set(spawnX, -0.9, spawnZ);
 
   let hp = 30 + gameState.round * 10;
-  let speed = 0.02 + Math.random() * 0.015 + gameState.round * 0.003;
+  let speed = 0.015 + Math.random() * 0.01 + gameState.round * 0.002;
 
   if (type === 'runner') {
     speed *= 1.8;
@@ -2467,7 +2467,7 @@ function animate(currentTime) {
       swatDir.y = 0;
       if (swatDir.length() > 0.5) {
         swatDir.normalize();
-        const swatSpeed = 0.04;
+        const swatSpeed = 0.04 * dt * 60.0;
         const nextSwatPos = swatPartnerMesh.position.clone().addScaledVector(swatDir, swatSpeed);
 
         let blocked = false;
@@ -2779,7 +2779,7 @@ function animate(currentTime) {
       }
 
       // Enhanced Cover Seeking & Raycast-Assisted Steering Navigation
-      const currentSpeed = enemy.isCharging ? enemy.speed * 2.8 : enemy.speed;
+      const currentSpeed = (enemy.isCharging ? enemy.speed * 2.8 : enemy.speed) * dt * 60.0;
       let moveTarget = playerVec.clone();
 
       // Shooter Enemies Cover & Retreat Decision Logic
