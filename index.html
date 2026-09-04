@@ -403,6 +403,15 @@
           <input type="checkbox" id="setting-weapon-sway" checked style="width: 18px; height: 18px; accent-color: #38bdf8; cursor: pointer;">
         </div>
         <div class="setting-item">
+          <label for="setting-fps-limit">FPS Frame Rate Cap:</label>
+          <select id="setting-fps-limit" class="map-select-dropdown" style="width: 100%;">
+            <option value="0">⚡ Uncapped (Max Hardware FPS)</option>
+            <option value="120">120 FPS</option>
+            <option value="60" selected>60 FPS (Recommended)</option>
+            <option value="30">30 FPS (Power Saver)</option>
+          </select>
+        </div>
+        <div class="setting-item">
           <label for="setting-sens">Mouse Sensitivity: <span id="val-sens">1.0</span></label>
           <input type="range" id="setting-sens" min="0.2" max="3.0" step="0.1" value="1.0">
         </div>

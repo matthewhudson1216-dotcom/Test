@@ -86,6 +86,12 @@ function issueSwatCommandState(state, command) {
   return state.swatCommand;
 }
 
+// 5. Test FPS Limiter Min Frame Interval Calculation
+function calculateMinFrameInterval(targetFps) {
+  if (targetFps <= 0) return 0;
+  return 1000 / targetFps;
+}
+
 // Run Unit Tests
 console.log('Running Node.js Unit Tests...');
 
@@ -127,5 +133,12 @@ assert.strictEqual(issueSwatCommandState(swatState, 'suppress'), 'suppress');
 assert.strictEqual(issueSwatCommandState(swatState, 'breach'), 'breach');
 assert.strictEqual(issueSwatCommandState(swatState, 'follow'), 'follow');
 console.log('✔ Test 4 Passed: SWAT squadmate command transitions function as expected.');
+
+// Test 5: FPS Limiter Intervals
+assert.strictEqual(calculateMinFrameInterval(0), 0);
+assert.strictEqual(calculateMinFrameInterval(60), 1000 / 60);
+assert.strictEqual(calculateMinFrameInterval(30), 1000 / 30);
+assert.strictEqual(calculateMinFrameInterval(120), 1000 / 120);
+console.log('✔ Test 5 Passed: FPS Limiter frame interval calculations function correctly.');
 
 console.log('\nAll Unit Tests Passed Successfully! 🎉');

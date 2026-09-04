@@ -151,6 +151,8 @@ let tacticalFlashlight = null;
 
 let keysPressed = { KeyW: false, KeyA: false, KeyS: false, KeyD: false };
 const moveSpeed = 0.08;
+let targetFpsCap = parseInt(localStorage.getItem('cop_fps_cap') || '60', 10);
+let lastFrameTime = performance.now();
 let mouseSensitivity = parseFloat(localStorage.getItem('cop_sens') || '1.0') * 0.002;
 let baseFOV = parseInt(localStorage.getItem('cop_fov') || '65', 10);
 let masterVolume = parseInt(localStorage.getItem('cop_vol_master') || '100', 10) / 100;
@@ -2270,8 +2272,20 @@ function updateGamepadInput() {
   }
 }
 
-function animate() {
+function animate(currentTime) {
   requestAnimationFrame(animate);
+
+  if (targetFpsCap > 0) {
+    const minFrameInterval = 1000 / targetFpsCap;
+    const elapsed = currentTime - lastFrameTime;
+    if (elapsed < minFrameInterval - 0.5) {
+      return;
+    }
+    lastFrameTime = currentTime - (elapsed % minFrameInterval);
+  } else {
+    lastFrameTime = currentTime;
+  }
+
   try {
     if (!clock && window.THREE && THREE.Clock) {
       clock = new THREE.Clock();
@@ -4663,6 +4677,22 @@ function setupEventListeners() {
     });
   }
 
+  // FPS Limiter Dropdown Listener
+  const settingFpsLimit = document.getElementById('setting-fps-limit');
+  if (settingFpsLimit) {
+    const initFps = localStorage.getItem('cop_fps_cap') || '60';
+    settingFpsLimit.value = initFps;
+    targetFpsCap = parseInt(initFps, 10);
+
+    settingFpsLimit.addEventListener('change', (e) => {
+      const val = e.target.value;
+      targetFpsCap = parseInt(val, 10);
+      localStorage.setItem('cop_fps_cap', val);
+      const label = targetFpsCap === 0 ? 'UNCAPPED (Max Hardware)' : `${targetFpsCap} FPS`;
+      showToast(`⚡ FPS LIMIT SET TO: ${label}`);
+    });
+  }
+
   // Settings Sliders Event Listeners
   if (settingSens) {
     const initSensVal = localStorage.getItem('cop_sens') || '1.0';
@@ -5128,12 +5158,17 @@ function showToast(message) {
 function onWindowResize() {
   const container = canvasContainer;
   if (!container || !renderer || !camera) return;
-  const width = container.clientWidth;
-  const height = container.clientHeight;
+  const width = container.clientWidth || 800;
+  const height = container.clientHeight || 380;
 
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
   renderer.setSize(width, height);
+
+  if (hudOverlayCanvas) {
+    hudOverlayCanvas.width = width;
+    hudOverlayCanvas.height = height;
+  }
 }
 
 // Start Game
