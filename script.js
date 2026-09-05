@@ -2291,6 +2291,7 @@ function animate(currentTime) {
       clock = new THREE.Clock();
     }
     const dt = clock ? Math.min(0.1, clock.getDelta()) : 0.016;
+    const dtFactor = Math.min(3.0, dt * 60.0);
 
     if (!isGameStarted) {
       // Cinematic background camera orbit on main menu screen
@@ -2526,11 +2527,10 @@ function animate(currentTime) {
   }
 
   // Smooth weapon recoil decay & movement weapon bobbing / muzzle flash fading
-  if (weaponRecoil > 0) weaponRecoil *= 0.82;
-  if (muzzleFlashPoint && muzzleFlashPoint.intensity > 0) muzzleFlashPoint.intensity *= 0.7;
+  if (weaponRecoil > 0) weaponRecoil = Math.max(0, weaponRecoil - 0.18 * dtFactor);
+  if (muzzleFlashPoint && muzzleFlashPoint.intensity > 0) muzzleFlashPoint.intensity = Math.max(0, muzzleFlashPoint.intensity - 1.5 * dtFactor);
   if (muzzleFlashSprite && muzzleFlashSprite.material.opacity > 0) {
-    muzzleFlashSprite.material.opacity *= 0.6;
-    if (muzzleFlashSprite.material.opacity < 0.05) muzzleFlashSprite.material.opacity = 0;
+    muzzleFlashSprite.material.opacity = Math.max(0, muzzleFlashSprite.material.opacity - 0.4 * dtFactor);
   }
 
   // Dynamic Crosshair Spread based on Movement, Crouching, & Recoil
@@ -2544,8 +2544,8 @@ function animate(currentTime) {
 
   // Handle Jump Physics (Y Position & Velocity)
   if (isJumping || playerPos.y > -0.9) {
-    playerPos.y += playerYVel;
-    playerYVel -= 0.015; // Gravity
+    playerPos.y += playerYVel * dtFactor;
+    playerYVel -= 0.015 * dtFactor; // Gravity
     if (playerPos.y <= -0.9) {
       playerPos.y = -0.9;
       playerYVel = 0;
