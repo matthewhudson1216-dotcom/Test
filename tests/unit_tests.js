@@ -18,7 +18,7 @@ function createInitialGameState() {
     xp: 0,
     rank: '🎖️ CADET',
     inventory: { pistol: true, smg: false, shotgun: false, rifle: false },
-    attachments: { reddot: false, laser: false },
+    attachments: { reddot: false, laser: false, suppressor: false, extmag: false, thermal: false, underbarrel: false },
     camos: { black: true, urban: true, gold: false },
     equippedCamo: 'black',
     equippedWeapon: 'pistol',
@@ -140,5 +140,10 @@ assert.strictEqual(calculateMinFrameInterval(60), 1000 / 60);
 assert.strictEqual(calculateMinFrameInterval(30), 1000 / 30);
 assert.strictEqual(calculateMinFrameInterval(120), 1000 / 120);
 console.log('✔ Test 5 Passed: FPS Limiter frame interval calculations function correctly.');
+
+// Test 6: Thermal Scope & Underbarrel Attachment State Factory
+assert.strictEqual(state1.attachments.thermal, false);
+assert.strictEqual(state1.attachments.underbarrel, false);
+console.log('✔ Test 6 Passed: Thermal optics & Underbarrel attachments initialized correctly in game state.');
 
 console.log('\nAll Unit Tests Passed Successfully! 🎉');

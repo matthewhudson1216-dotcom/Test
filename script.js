@@ -30,7 +30,7 @@ function createInitialGameState() {
     xp: 0,
     rank: '🎖️ CADET',
     inventory: { pistol: true, smg: false, shotgun: false, rifle: false },
-    attachments: { reddot: false, laser: false, suppressor: false, extmag: false },
+    attachments: { reddot: false, laser: false, suppressor: false, extmag: false, thermal: false, underbarrel: false },
     camos: { black: true, urban: true, gold: false },
     equippedCamo: 'black',
     equippedWeapon: 'pistol',
@@ -415,6 +415,18 @@ function playSyntheticSound(type, worldPos = null) {
   const osc = audioCtx.createOscillator();
   const gain = audioCtx.createGain();
 
+  // Indoor Acoustic Reverb Delay Node for Bank & Warehouse indoor maps
+  let reverbNode = null;
+  if ((currentMap === 'bank' || currentMap === 'warehouse') && audioCtx.createDelay) {
+    reverbNode = audioCtx.createDelay();
+    reverbNode.delayTime.value = 0.08; // 80ms indoor room echo delay
+    const feedbackGain = audioCtx.createGain();
+    feedbackGain.gain.value = 0.35;
+    reverbNode.connect(feedbackGain);
+    feedbackGain.connect(reverbNode);
+    reverbNode.connect(audioCtx.destination);
+  }
+
   // 3D Spatial Audio Panner Node calculation if position supplied
   if (worldPos && audioCtx.createPanner) {
     const panner = audioCtx.createPanner();
@@ -431,9 +443,11 @@ function playSyntheticSound(type, worldPos = null) {
 
     osc.connect(gain);
     gain.connect(panner);
+    if (reverbNode) gain.connect(reverbNode);
     panner.connect(audioCtx.destination);
   } else {
     osc.connect(gain);
+    if (reverbNode) gain.connect(reverbNode);
     gain.connect(audioCtx.destination);
   }
 
@@ -725,7 +739,8 @@ let scene, camera, renderer, clock = null;
 let copPlayerMesh;
 let cityGroup;
 let policeSirenLightRed, policeSirenLightBlue;
-let ambientLight;
+let ambientLight, lightningLight;
+let rainParticlesMesh = null;
 let isNVGOn = false;
 const nvgOverlayEl = document.getElementById('nvg-overlay');
 
@@ -1997,6 +2012,35 @@ function createProceduralCity() {
   });
 
   scene.add(cityGroup);
+
+  // Dynamic Environmental Weather & Fog System
+  if (currentMap === 'street' || currentMap === 'warehouse') {
+    scene.fog = new THREE.FogExp2(0x020617, 0.035);
+
+    // Create 3D Rain Particles System
+    const rainGeom = new THREE.BufferGeometry();
+    const rainCount = 800;
+    const rainPositions = new Float32Array(rainCount * 3);
+
+    for (let r = 0; r < rainCount * 3; r += 3) {
+      rainPositions[r] = (Math.random() - 0.5) * 40;
+      rainPositions[r + 1] = Math.random() * 12;
+      rainPositions[r + 2] = (Math.random() - 0.5) * 40;
+    }
+
+    rainGeom.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
+    const rainMat = new THREE.PointsMaterial({ color: 0x38bdf8, size: 0.06, transparent: true, opacity: 0.6 });
+    rainParticlesMesh = new THREE.Points(rainGeom, rainMat);
+    scene.add(rainParticlesMesh);
+
+    // Lightning Flash Light
+    lightningLight = new THREE.PointLight(0xffffff, 0, 100);
+    lightningLight.position.set(0, 15, 0);
+    scene.add(lightningLight);
+  } else {
+    scene.fog = null;
+    rainParticlesMesh = null;
+  }
 }
 
 function spawnRobberEnemy() {
@@ -2524,6 +2568,22 @@ function animate(currentTime) {
     }
   } else {
     if (bloodSplatterEl) bloodSplatterEl.classList.add('hidden');
+  }
+
+  // Animate Rain Particles & Lightning Flashes
+  if (rainParticlesMesh) {
+    const pos = rainParticlesMesh.geometry.attributes.position.array;
+    for (let i = 1; i < pos.length; i += 3) {
+      pos[i] -= 0.35 * dtFactor;
+      if (pos[i] < -1.0) pos[i] = 12.0;
+    }
+    rainParticlesMesh.geometry.attributes.position.needsUpdate = true;
+
+    // Random Lightning Flash
+    if (lightningLight && Math.random() < 0.005) {
+      lightningLight.intensity = 8.0;
+      setTimeout(() => { if (lightningLight) lightningLight.intensity = 0; }, 80);
+    }
   }
 
   // Smooth weapon recoil decay & movement weapon bobbing / muzzle flash fading
@@ -3055,6 +3115,32 @@ function renderHUDCanvas() {
     hudOverlayCtx.shadowBlur = 15;
 
     hudOverlayCtx.fillText(text, cx, cy - 60);
+    hudOverlayCtx.restore();
+  }
+
+  // Thermal Scope Heat Signature Overlay
+  if (gameState.attachments.thermal && isAimingDownSights) {
+    hudOverlayCtx.save();
+    hudOverlayCtx.strokeStyle = '#f97316';
+    hudOverlayCtx.lineWidth = 2;
+    hudOverlayCtx.shadowColor = '#f97316';
+    hudOverlayCtx.shadowBlur = 10;
+
+    activeEnemies.forEach(enemy => {
+      const enemyWorldPos = enemy.mesh.position.clone().add(new THREE.Vector3(0, 0.4, 0));
+      const proj = enemyWorldPos.project(camera);
+      if (proj.z < 1.0) {
+        const screenX = (proj.x * 0.5 + 0.5) * w;
+        const screenY = (-proj.y * 0.5 + 0.5) * h;
+
+        hudOverlayCtx.fillStyle = 'rgba(249, 115, 22, 0.85)';
+        hudOverlayCtx.beginPath();
+        hudOverlayCtx.arc(screenX, screenY, 14, 0, Math.PI * 2);
+        hudOverlayCtx.fill();
+        hudOverlayCtx.stroke();
+      }
+    });
+
     hudOverlayCtx.restore();
   }
 
@@ -4317,6 +4403,13 @@ function setupEventListeners() {
       return;
     }
 
+    if (e.code === 'KeyU' || e.code === 'Keyu' || e.key === 'u' || e.key === 'U') {
+      if (!isGameExited) {
+        fireUnderbarrel40mmGrenade();
+      }
+      return;
+    }
+
     if (e.code === 'KeyV' || e.code === 'Keyv' || e.key === 'v' || e.key === 'V') {
       if (!isGameExited) {
         performQuickMeleeKnife();
@@ -4546,6 +4639,50 @@ function setupEventListeners() {
       } else {
         gameState.attachments.reddot = false;
         showToast('🔧 Red Dot Sight Removed.');
+      }
+      updateFPSWeaponMesh();
+      updateUI();
+      updateBuyMenuUI();
+    });
+  }
+
+  const buyAttThermalBtn = document.getElementById('buy-att-thermal');
+  if (buyAttThermalBtn) {
+    buyAttThermalBtn.addEventListener('click', () => {
+      if (!gameState.attachments.thermal) {
+        if (currentMap === 'range' || gameState.cash >= 350) {
+          if (currentMap !== 'range') gameState.cash -= 350;
+          gameState.attachments.thermal = true;
+          playSound('buy');
+          showToast('🔭 Thermal Vision Scope Mounted (Enemy Heat Signatures Visible)!');
+        } else {
+          showToast('❌ Not enough cash for Thermal Scope ($350)!');
+        }
+      } else {
+        gameState.attachments.thermal = false;
+        showToast('🔭 Thermal Scope Removed.');
+      }
+      updateFPSWeaponMesh();
+      updateUI();
+      updateBuyMenuUI();
+    });
+  }
+
+  const buyAttUnderbarrelBtn = document.getElementById('buy-att-underbarrel');
+  if (buyAttUnderbarrelBtn) {
+    buyAttUnderbarrelBtn.addEventListener('click', () => {
+      if (!gameState.attachments.underbarrel) {
+        if (currentMap === 'range' || gameState.cash >= 450) {
+          if (currentMap !== 'range') gameState.cash -= 450;
+          gameState.attachments.underbarrel = true;
+          playSound('buy');
+          showToast('🚀 40mm Underbarrel Grenade Launcher Mounted [PRESS KEY U]!');
+        } else {
+          showToast('❌ Not enough cash for Underbarrel Launcher ($450)!');
+        }
+      } else {
+        gameState.attachments.underbarrel = false;
+        showToast('🚀 Underbarrel Launcher Removed.');
       }
       updateFPSWeaponMesh();
       updateUI();
@@ -4869,6 +5006,43 @@ function deployClaymore() {
   scene.add(claymoreGroup);
   activeClaymores.push({ mesh: claymoreGroup, pos: dropPos });
   showToast('💥 CLAYMORE TRIPWIRE MINE PLANTED!');
+}
+
+function fireUnderbarrel40mmGrenade() {
+  if (!gameState.attachments.underbarrel) {
+    showToast('⚠️ 40mm Underbarrel Grenade Launcher not equipped! Buy in Armory.');
+    return;
+  }
+  if (!gameState.isRoundActive || isPaused || isGameExited) return;
+
+  playSound('shotgun');
+  showToast('🚀 40mm HE GRENADE LAUNCHED!');
+
+  const roundGeom = new THREE.CylinderGeometry(0.04, 0.04, 0.18, 8);
+  const roundMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, metalness: 0.9 });
+  const roundMesh = new THREE.Mesh(roundGeom, roundMat);
+
+  let startPos = camera.position.clone();
+  roundMesh.position.copy(startPos);
+  scene.add(roundMesh);
+
+  const euler = new THREE.Euler(cameraRotation.pitch, cameraRotation.yaw, 0, 'YXZ');
+  const dir = new THREE.Vector3(0, 0, -1).applyEuler(euler);
+
+  let launchVelocity = dir.multiplyScalar(0.7);
+
+  let ticks = 0;
+  const launchInterval = setInterval(() => {
+    ticks += 1;
+    roundMesh.position.add(launchVelocity);
+    launchVelocity.y -= 0.01;
+
+    if (roundMesh.position.y <= -0.9 || ticks > 30) {
+      clearInterval(launchInterval);
+      triggerGrenadeExplosion(roundMesh.position);
+      scene.remove(roundMesh);
+    }
+  }, 25);
 }
 
 function throwGrenade() {
