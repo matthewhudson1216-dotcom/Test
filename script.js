@@ -2812,8 +2812,8 @@ function animate(currentTime) {
 
       // Shooter enemy shoots at player periodically ONLY if line-of-sight is not blocked by walls/barricades/smoke
       if (enemy.type === 'shooter') {
-        enemy.shootCooldown += 1;
-        if (enemy.shootCooldown > 110) {
+        enemy.shootCooldown = (enemy.shootCooldown || 0) + dt;
+        if (enemy.shootCooldown > 1.8) {
           enemy.shootCooldown = 0;
           if (canSeePlayer) {
             fireBulletTracerFromEnemy(enemyEyePos, playerEyePos, 0xef4444);
@@ -2942,15 +2942,16 @@ function animate(currentTime) {
       const dist = enemy.mesh.position.distanceTo(targetPos);
       if (dist < 1.1) {
         // Close-quarters Melee Combat State (Attacking Animation)
-        enemy.meleeCooldown += 1;
+        enemy.meleeCooldown = (enemy.meleeCooldown || 0) + dt;
 
         // Perform arm punch/swing animation towards player
-        const swingAngle = Math.sin(enemy.meleeCooldown * 0.3) * 0.8;
+        const swingAngle = Math.sin(enemy.meleeCooldown * 10.0) * 0.8;
         if (enemy.rightArm) enemy.rightArm.rotation.x = -Math.PI / 3 + swingAngle;
         if (enemy.leftArm) enemy.leftArm.rotation.x = -Math.PI / 3 - swingAngle;
 
-        // Apply continuous melee damage on attack interval (every 35 frames)
-        if (enemy.meleeCooldown % 35 === 0) {
+        // Apply continuous melee damage on attack interval (every 0.6 seconds)
+        if (enemy.meleeCooldown > 0.6) {
+          enemy.meleeCooldown = 0;
           if (enemy.type === 'shield') {
             damagePlayer(18, enemy.mesh.position);
             playSound('hit');
@@ -4812,6 +4813,26 @@ function setupEventListeners() {
       gameState.enableWeaponSway = e.target.checked;
       showToast(e.target.checked ? '🏃 Weapon Sway Enabled' : '🚫 Weapon Sway Disabled');
     });
+  }
+
+  // Performance Graphics Quality Dropdown Listener
+  const settingGraphics = document.getElementById('setting-graphics-quality');
+  if (settingGraphics && renderer) {
+    const initGfx = localStorage.getItem('cop_gfx_quality') || 'high';
+    settingGraphics.value = initGfx;
+
+    const applyGfxQuality = (quality) => {
+      let pr = Math.min(window.devicePixelRatio, 2);
+      if (quality === 'medium') pr = 1.0;
+      else if (quality === 'low') pr = 0.75;
+
+      renderer.setPixelRatio(pr);
+      localStorage.setItem('cop_gfx_quality', quality);
+      showToast(`🌟 GRAPHICS QUALITY: ${quality.toUpperCase()}`);
+    };
+
+    applyGfxQuality(initGfx);
+    settingGraphics.addEventListener('change', (e) => applyGfxQuality(e.target.value));
   }
 
   // FPS Limiter Dropdown Listener
