@@ -3,519 +3,199 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>3D City Police Shooter: Cops vs Robbers</title>
+  <title>Tactical Aim & Reaction Trainer - CS2 Precision Drills</title>
   <link rel="stylesheet" href="style.css">
-  <!-- Three.js CDN -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
-  <div class="game-container cop-theme">
-    <!-- Start Main Menu Modal -->
-    <div id="main-menu-modal" class="modal-overlay">
-      <div class="main-menu-card">
-        <div class="main-menu-header">
-          <h1>🚨 CITY DEFENSE: SWAT FPS</h1>
-          <p>Commercial-Grade 3D Police Tactical Shooter</p>
-        </div>
-        <div class="main-menu-body">
-          <div class="briefing-box">
-            <h3>📋 MISSION BRIEFING</h3>
-            <p>Armed robber syndicates have seized key city sectors! As SWAT Command, neutralize armed threats, rescue civilian hostages, and protect precinct vaults across multiple combat environments.</p>
-          </div>
-
-          <div class="briefing-box leaderboard-box">
-            <h3>🏆 CAREER LEADERBOARD & RECORDS</h3>
-            <div class="leaderboard-grid">
-              <div><span>Highest Round:</span> <strong id="lead-highest-round">Round 1</strong></div>
-              <div><span>Suspects Arrested:</span> <strong id="lead-total-kills">0</strong></div>
-              <div><span>Critical Headshots:</span> <strong id="lead-headshots">0</strong></div>
-              <div><span>Hostages Rescued:</span> <strong id="lead-hostages">0</strong></div>
-            </div>
-          </div>
-          <div class="setting-item partner-toggle-item" style="margin-bottom: 1rem;">
-            <label for="menu-partner-select" style="font-weight: 700; color: #38bdf8;">👥 SWAT Partner Mode:</label>
-            <select id="menu-partner-select" class="map-select-dropdown">
-              <option value="squad">👥 AI Squadmate Partner</option>
-              <option value="solo">👤 Solo Duty (No AI)</option>
-            </select>
-          </div>
-          <div class="menu-controls-summary">
-            <div><span class="key-badge">WASD</span> Move &nbsp;•&nbsp; <span class="key-badge">MOUSE</span> Aim & Shoot</div>
-            <div><span class="key-badge">Q/E</span> Lean &nbsp;•&nbsp; <span class="key-badge">SHIFT</span> Sprint &nbsp;•&nbsp; <span class="key-badge">SPACE</span> Jump</div>
-            <div><span class="key-badge">V</span> Knife Slash &nbsp;•&nbsp; <span class="key-badge">F</span> Flashlight &nbsp;•&nbsp; <span class="key-badge">N</span> Night Vision</div>
-          </div>
-          <button id="start-game-btn" class="main-deploy-btn">🚨 DEPLOY ON DUTY [START GAME]</button>
-          <button id="start-tutorial-btn" class="icon-btn" style="margin-top: 0.75rem; width: 100%; padding: 0.8rem; font-size: 0.95rem; border-color: #38bdf8;">🎯 PLAY TUTORIAL (SHOOTING RANGE)</button>
-        </div>
-      </div>
-    </div>
+  <div class="trainer-container">
+    <!-- Header Title & Mode Selector Bar -->
     <header>
-      <h1>🚨 City Defense: 3D Tactical Police Shooter</h1>
-      <div class="header-controls">
-        <select id="map-select" class="map-select-dropdown" title="Select Map Environment">
-          <option value="street">🏙️ Precinct Plaza Street</option>
-          <option value="bank">🏦 First National Bank</option>
-          <option value="warehouse">🏭 Industrial Warehouse</option>
-          <option value="range">🎯 Tactical Shooting Range</option>
-        </select>
-        <span id="rank-badge" class="rank-badge">🎖️ CADET</span>
-        <div class="secondary-economy-badge">
-          <span id="round-display" class="round-badge-small">WAVE 1</span>
-          <span id="cash-display" class="cash-badge-small">💵 $800</span>
-        </div>
-        <button id="pause-btn" class="icon-btn danger-icon-btn" title="Pause / Exit Game">⏸️ Pause [ESC]</button>
-        <button id="sfx-toggle" class="icon-btn" title="Toggle Sound Effects">🔊 SFX On</button>
+      <div class="brand-title">
+        <span class="brand-icon">⚡</span>
+        <h1>TACTICAL AIM & REACTION LAB</h1>
+        <span class="brand-badge">CS2 EDITION</span>
+      </div>
+      <div class="header-right">
+        <button id="main-menu-trigger-btn" class="icon-btn">📋 Main Menu [ESC]</button>
+        <button id="pointer-lock-toggle-btn" class="icon-btn toggle-btn">🔒 Pointer Lock: OFF</button>
+        <button id="sfx-toggle-btn" class="icon-btn">🔊 SFX: ON</button>
       </div>
     </header>
 
-    <main class="game-layout full-viewport-layout">
-      <!-- 3D City Viewport & Player Tactical HUD -->
-      <section class="shooter-section">
-        <div class="hud-top-bar primary-combat-hud">
-          <!-- Dominant Player Health & Armor HUD Bars -->
-          <div class="hud-bars-container dominant-bars">
-            <div class="hud-bar-group combat-bar">
-              <div class="hud-label">HEALTH <span id="health-text" class="stat-val">100 / 100</span></div>
-              <div class="hud-bar-bg primary-bg">
-                <div id="health-bar-fill" class="hud-bar-fill health-fill" style="width: 100%;"></div>
-              </div>
-            </div>
-            <div class="hud-bar-group combat-bar">
-              <div class="hud-label">ARMOUR <span id="armor-text" class="stat-val">0 / 100</span></div>
-              <div class="hud-bar-bg primary-bg">
-                <div id="armor-bar-fill" class="hud-bar-fill armor-fill" style="width: 0%;"></div>
-              </div>
-            </div>
-          </div>
+    <!-- Top Telemetry Bar / HUD -->
+    <section class="hud-bar">
+      <div class="hud-item">
+        <span class="hud-label">TIMER</span>
+        <span id="hud-timer" class="hud-value neon-cyan">30.0s</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">SCORE</span>
+        <span id="hud-score" class="hud-value tactical-orange">0</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">HITS / MISSES</span>
+        <span class="hud-value"><span id="hud-hits" class="neon-cyan">0</span> / <span id="hud-misses" class="text-danger">0</span></span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">ACCURACY</span>
+        <span id="hud-accuracy" class="hud-value neon-cyan">100.0%</span>
+      </div>
+      <div class="hud-item">
+        <span class="hud-label">AVG REACTION</span>
+        <span id="hud-reaction-time" class="hud-value tactical-orange">0 ms</span>
+      </div>
+    </section>
 
-          <!-- Central Active Objective Tracker -->
-          <div id="hud-objective-tracker" class="hud-objective-tracker">
-            <div class="objective-header">📋 ACTIVE OBJECTIVE</div>
-            <div id="hud-objective-text" class="objective-body">NEUTRALIZE ALL ARMED SUSPECTS</div>
-            <div id="hud-objective-progress-bar" class="objective-progress-bar"><div id="hud-objective-progress-fill" style="width: 0%;"></div></div>
-          </div>
-
-          <!-- Ammo & Weapon Primary HUD -->
-          <div class="ammo-hud primary-ammo-hud">
-            <div class="weapon-name" id="hud-weapon-name">SERVICE PISTOL</div>
-            <div class="ammo-count"><span id="ammo-clip">12</span> / <span id="ammo-reserve">∞</span></div>
-            <div class="grenade-count">💣 FRAG: <span id="hud-grenades">2</span> [G] &nbsp;•&nbsp; ⚡ FLASH: <span id="hud-flashbangs">2</span> [K] &nbsp;•&nbsp; 💨 SMOKE: <span id="hud-smoke">2</span> [J] &nbsp;•&nbsp; 💥 CLAYMORE: <span id="hud-claymores">2</span> [X]</div>
-          </div>
-        </div>
-
-        <!-- 3D City Viewport with Target Crosshair -->
-        <div id="canvas-container" class="canvas-container shooter-canvas">
-          <div id="floating-text-container" class="floating-text-container"></div>
-          <div id="damage-vignette" class="damage-vignette hidden"></div>
-          <div id="flashbang-overlay" class="flashbang-overlay hidden"></div>
-          <div id="armor-break-overlay" class="armor-break-overlay hidden"></div>
-          <div id="threat-indicator-left" class="threat-indicator left hidden"></div>
-          <div id="threat-indicator-right" class="threat-indicator right hidden"></div>
-          <div id="threat-indicator-top" class="threat-indicator top hidden"></div>
-          <div id="blood-splatter-overlay" class="blood-splatter-overlay hidden"></div>
-          <div id="nvg-overlay" class="nvg-overlay hidden"></div>
-          <div id="hitmarker" class="hitmarker hidden"></div>
-          <div id="controller-prompt-bar" class="controller-prompt-bar hidden">
-            <span>🎮 [LT] ADS</span> <span>[RT] FIRE</span> <span>[A] JUMP</span> <span>[B] CROUCH</span> <span>[X] RELOAD</span> <span>[Y] MELEE</span> <span>[T] COMMAND</span>
-          </div>
-          <div id="swat-command-hud-badge" class="swat-command-hud-badge">SWAT: 👥 REGROUP / FOLLOW [T]</div>
-          <div id="weapon-quickswitch-badge" class="weapon-quickswitch-badge hidden">🔫 SERVICE PISTOL</div>
-          <div id="combo-streak-badge" class="combo-streak-badge hidden">🔥 DOUBLE KILL x2</div>
-          <div id="wave-announcement-banner" class="wave-announcement-banner hidden">🚨 WAVE 1 DEPLOYED!</div>
-          <!-- 2D HUD Overlay Canvas for zero-thrash crosshair & hitmarker rendering -->
-          <canvas id="hud-overlay-canvas" class="hud-overlay-canvas"></canvas>
-          <!-- 2D Radar Overlay -->
-          <canvas id="radar-canvas" class="radar-canvas" width="120" height="120"></canvas>
-        </div>
-
-        <div class="viewport-action-bar">
-          <button id="open-buy-menu-btn" class="ctrl-btn buy-menu-trigger-btn">🛒 OPEN ARMORY BUY MENU [B]</button>
-          <button id="main-pause-trigger-btn" class="ctrl-btn pause-menu-trigger-btn">⏸️ PAUSE / START ROUND [ESC]</button>
-          <button id="complete-tutorial-btn" class="ctrl-btn start-round-btn hidden">🏁 Complete Tutorial & Start Main Wave 1</button>
-        </div>
-      </section>
+    <!-- Interactive Canvas Area -->
+    <main class="canvas-wrapper">
+      <canvas id="game-canvas" width="1280" height="720"></canvas>
+      <div id="countdown-overlay" class="countdown-overlay hidden">3</div>
+      <div id="toast-container" class="toast-container"></div>
     </main>
+
+    <!-- Viewport Quick Action Bar -->
+    <footer class="action-bar">
+      <div class="mode-pills">
+        <button id="pill-gridshot" class="pill-btn active" data-mode="gridshot">🎯 Gridshot</button>
+        <button id="pill-micro" class="pill-btn" data-mode="micro">🔍 Micro-Adjustments</button>
+        <button id="pill-reaction" class="pill-btn" data-mode="reaction">⚡ Reaction Time</button>
+      </div>
+      <div class="action-buttons">
+        <button id="start-drill-action-btn" class="main-btn primary-btn">▶ START DRILL [SPACE]</button>
+        <button id="reset-drill-btn" class="main-btn secondary-btn">🔄 RESET</button>
+      </div>
+    </footer>
   </div>
 
-  <!-- SWAT Squadmate Command Modal (Triggered by T Key) -->
-  <div id="swat-command-modal" class="modal-overlay hidden">
-    <div class="pause-card swat-command-card">
-      <h2>👥 SWAT SQUADMATE COMMANDS</h2>
-      <p class="pause-subtitle">Issue direct tactical orders to your AI SWAT partner [PRESS KEY 1-4 OR CLICK]:</p>
-      <div class="pause-btn-group">
-        <button id="cmd-follow-btn" class="pause-btn resume">1️⃣ 👣 REGROUP & FOLLOW ME</button>
-        <button id="cmd-defend-btn" class="pause-btn">2️⃣ 🛡️ HOLD POSITION & DEFEND AREA</button>
-        <button id="cmd-suppress-btn" class="pause-btn">3️⃣ 🔥 PROVIDE SUPPRESSIVE FIRE</button>
-        <button id="cmd-breach-btn" class="pause-btn danger">4️⃣ 🚪 BREACH & CLEAR FRONT</button>
-        <button id="close-swat-cmd-btn" class="pause-btn" style="margin-top: 0.5rem;">CLOSE COMMAND MENU [T / ESC]</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Full-Screen Tactical Map Overlay (Triggered by M Key) -->
-  <div id="tactical-map-modal" class="modal-overlay hidden">
-    <div class="map-modal-card">
-      <div class="map-modal-header">
-        <h2>🗺️ TACTICAL PRECINCT MAP</h2>
-        <span class="map-modal-subtitle">GRID SECTOR ALPHA-9 [M TO CLOSE]</span>
-      </div>
-      <div class="map-canvas-container">
-        <canvas id="large-tactical-map" width="500" height="500"></canvas>
-      </div>
-      <div class="map-legend">
-        <span><span class="legend-dot green"></span> OFFICER (YOU)</span>
-        <span><span class="legend-dot red"></span> ROBBER TARGET</span>
-        <span><span class="legend-dot blue"></span> RUNNER</span>
-        <span><span class="legend-dot purple"></span> SHIELD</span>
-        <span><span class="legend-dot gray"></span> BARRICADE / VEHICLE</span>
-      </div>
-      <button id="close-map-btn" class="ctrl-btn buy-menu-trigger-btn">CLOSE MAP [M / ESC]</button>
-    </div>
-  </div>
-
-  <!-- Intermission Buy Menu Modal -->
-  <div id="buy-menu-modal" class="modal-overlay hidden">
-    <div class="buy-menu-card">
-      <div class="buy-menu-header">
-        <h2>🛍️ INTERMISSION ARMORY BUY MENU</h2>
-        <div class="buy-menu-balance">AVAILABLE FUNDS: <strong id="buy-menu-cash">$800</strong></div>
+  <!-- Main Menu Overlay Modal -->
+  <div id="main-menu-modal" class="modal-overlay">
+    <div class="menu-card">
+      <div class="menu-header">
+        <h2>⚡ DRILL SELECTION & SETTINGS</h2>
+        <p>Tactical mouse control, reflexes, and precision training for competitive shooters.</p>
       </div>
 
-      <div class="buy-menu-grid">
-        <!-- Camo Skins Section -->
-        <div class="buy-category">
-          <h3>🎨 WEAPON CAMO SKINS</h3>
-          <div class="camo-btn-row">
-            <button id="camo-black-btn" class="buy-item-btn equipped">Midnight Black</button>
-            <button id="camo-urban-btn" class="buy-item-btn">Urban Digital</button>
-            <button id="camo-gold-btn" class="buy-item-btn">Gold Honor ($1,000)</button>
+      <!-- Training Routines Selection -->
+      <div class="drill-selection-grid">
+        <div class="drill-card selected" id="card-gridshot" data-mode="gridshot">
+          <div class="drill-badge">30s TIMED</div>
+          <h3>🎯 Gridshot</h3>
+          <p>Three static targets appear simultaneously. Click one to instantly spawn another in a random grid position. Train wide macro flicks and rhythm.</p>
+          <div class="drill-stats-preview">
+            <span>High Score: <strong id="best-gridshot-score">0</strong></span>
+            <span>Best Accuracy: <strong id="best-gridshot-acc">0%</strong></span>
           </div>
         </div>
 
-        <!-- Weapons Section -->
-        <div class="buy-category">
-          <h3>🔫 WEAPONS</h3>
-          <div class="buy-item-card">
-            <div class="buy-item-info">
-              <h4>Service Pistol</h4>
-              <p>Standard issue sidearm with fast reload</p>
-              <span class="item-cost">FREE / OWNED</span>
-            </div>
-            <button id="buy-wpn-pistol" class="buy-item-btn equipped" disabled>EQUIPPED</button>
-          </div>
-
-          <div class="buy-item-card">
-            <div class="buy-item-info">
-              <h4>Tactical SMG</h4>
-              <p>Rapid-fire lightweight submachine gun</p>
-              <span class="item-cost">$800</span>
-            </div>
-            <button id="buy-wpn-smg" class="buy-item-btn">BUY ($800)</button>
-          </div>
-
-          <div class="buy-item-card">
-            <div class="buy-item-info">
-              <h4>Tactical Shotgun</h4>
-              <p>High close-quarters damage blast</p>
-              <span class="item-cost">$500</span>
-            </div>
-            <button id="buy-wpn-shotgun" class="buy-item-btn">BUY / EQUIP</button>
-          </div>
-
-          <div class="buy-item-card">
-            <div class="buy-item-info">
-              <h4>Assault Rifle</h4>
-              <p>Fully automatic rapid firepower</p>
-              <span class="item-cost">$1,200</span>
-            </div>
-            <button id="buy-wpn-rifle" class="buy-item-btn">BUY / EQUIP</button>
+        <div class="drill-card" id="card-micro" data-mode="micro">
+          <div class="drill-badge">30s TIMED</div>
+          <h3>🔍 Micro-Adjustments</h3>
+          <p>Smaller, high-precision targets appear sequentially in close proximity. Train fine motor control and small crosshair corrections.</p>
+          <div class="drill-stats-preview">
+            <span>High Score: <strong id="best-micro-score">0</strong></span>
+            <span>Best Accuracy: <strong id="best-micro-acc">0%</strong></span>
           </div>
         </div>
 
-        <!-- Armour & Protection Section -->
-        <div class="buy-category">
-          <h3>🛡️ ARMOUR & PROTECTION</h3>
-          <div class="buy-item-card">
-            <div class="buy-item-info">
-              <h4>🪖 Kevlar Helmet</h4>
-              <p>-25% damage taken from enemy gunfire</p>
-              <span class="item-cost">$400</span>
-            </div>
-            <button id="buy-kevlar-helmet" class="buy-item-btn">BUY ($400)</button>
-          </div>
-
-          <div class="buy-item-card">
-            <div class="buy-item-info">
-              <h4>Kevlar Vest</h4>
-              <p>+50 Armor points absorption</p>
-              <span class="item-cost">$300</span>
-            </div>
-            <button id="buy-armor-kevlar" class="buy-item-btn">BUY ($300)</button>
-          </div>
-
-          <div class="buy-item-card">
-            <div class="buy-item-info">
-              <h4>Heavy Tactical Suit</h4>
-              <p>+100 Armor points absorption</p>
-              <span class="item-cost">$600</span>
-            </div>
-            <button id="buy-armor-heavy" class="buy-item-btn">BUY ($600)</button>
-          </div>
-
-          <div class="buy-item-card">
-            <div class="buy-item-info">
-              <h4>Medical First Aid Kit</h4>
-              <p>Restores 50 Player Health</p>
-              <span class="item-cost">$250</span>
-            </div>
-            <button id="buy-medkit" class="buy-item-btn">BUY ($250)</button>
-          </div>
-
-          <div class="buy-item-card">
-            <div class="buy-item-info">
-              <h4>💨 Smoke Grenades (+2)</h4>
-              <p>Deploy dense smoke clouds blinding enemy vision</p>
-              <span class="item-cost">$200</span>
-            </div>
-            <button id="buy-smoke-grenades" class="buy-item-btn">BUY ($200)</button>
-          </div>
-
-          <div class="buy-item-card">
-            <div class="buy-item-info">
-              <h4>💥 Claymore Mines (+2)</h4>
-              <p>Proximity mines with visible red laser tripwires</p>
-              <span class="item-cost">$300</span>
-            </div>
-            <button id="buy-claymore-mines" class="buy-item-btn">BUY ($300)</button>
-          </div>
-
-          <div class="buy-item-card">
-            <div class="buy-item-info">
-              <h4>⚡ Flashbang Grenades (+2)</h4>
-              <p>Blinds & disorients enemies for 3.5 seconds [K]</p>
-              <span class="item-cost">$250</span>
-            </div>
-            <button id="buy-flashbangs" class="buy-item-btn">BUY ($250)</button>
-          </div>
-
-          <div class="buy-item-card">
-            <div class="buy-item-info">
-              <h4>Restock Frag Grenades</h4>
-              <p>Restores +2 Fragmentation Grenades</p>
-              <span class="item-cost">$200</span>
-            </div>
-            <button id="buy-grenades" class="buy-item-btn">BUY ($200)</button>
-          </div>
-        </div>
-
-        <!-- Optional Weapon Attachments Section -->
-        <div class="buy-category">
-          <h3>🔧 OPTIONAL ATTACHMENTS</h3>
-          <div class="buy-item-card">
-            <div class="buy-item-info">
-              <h4>Red Dot Sight</h4>
-              <p>Precision 3D optic glass for ADS</p>
-              <span class="item-cost">$200</span>
-            </div>
-            <button id="buy-att-reddot" class="buy-item-btn">BUY ($200)</button>
-          </div>
-
-          <div class="buy-item-card">
-            <div class="buy-item-info">
-              <h4>Tactical Laser Sight</h4>
-              <p>Red targeting beam indicator</p>
-              <span class="item-cost">$150</span>
-            </div>
-            <button id="buy-att-laser" class="buy-item-btn">BUY ($150)</button>
-          </div>
-
-          <div class="buy-item-card">
-            <div class="buy-item-info">
-              <h4>Tactical Suppressor</h4>
-              <p>Muffles gunfire noise & stealth alert reduction</p>
-              <span class="item-cost">$250</span>
-            </div>
-            <button id="buy-att-suppressor" class="buy-item-btn">BUY ($250)</button>
-          </div>
-
-          <div class="buy-item-card">
-            <div class="buy-item-info">
-              <h4>Extended Drum Magazine</h4>
-              <p>+50% magazine clip capacity</p>
-              <span class="item-cost">$300</span>
-            </div>
-            <button id="buy-att-extmag" class="buy-item-btn">BUY ($300)</button>
-          </div>
-
-          <div class="buy-item-card">
-            <div class="buy-item-info">
-              <h4>Thermal Vision Scope</h4>
-              <p>Highlights enemy heat signatures through smoke screens</p>
-              <span class="item-cost">$350</span>
-            </div>
-            <button id="buy-att-thermal" class="buy-item-btn">BUY ($350)</button>
-          </div>
-
-          <div class="buy-item-card">
-            <div class="buy-item-info">
-              <h4>40mm Underbarrel Grenade Launcher</h4>
-              <p>Fires high-explosive 40mm rounds [KEY U]</p>
-              <span class="item-cost">$450</span>
-            </div>
-            <button id="buy-att-underbarrel" class="buy-item-btn">BUY ($450)</button>
+        <div class="drill-card" id="card-reaction" data-mode="reaction">
+          <div class="drill-badge">5 TRIALS</div>
+          <h3>⚡ Reaction Time</h3>
+          <p>Neutral dark screen flashes bright on a random delay (1.5s - 4.0s). Click as fast as possible to log exact millisecond response times across 5 trials.</p>
+          <div class="drill-stats-preview">
+            <span>Best Reaction: <strong id="best-reaction-ms">-- ms</strong></span>
+            <span>Avg Reaction: <strong id="best-reaction-avg">-- ms</strong></span>
           </div>
         </div>
       </div>
 
-      <div class="buy-menu-footer">
-        <button id="close-buy-menu-btn" class="main-click-btn start-round-btn">CLOSE ARMORY & DEPLOY</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Pause Modal Overlay (Triggered by ESC Key) -->
-  <div id="pause-modal" class="modal-overlay hidden">
-    <div class="pause-card">
-      <h2>⏸️ GAME PAUSED</h2>
-      <p class="pause-subtitle">Take a tactical breath Officer. What would you like to do?</p>
-
-      <!-- Settings Controls -->
-      <div class="settings-panel">
-        <h3>⚙️ TACTICAL SETTINGS</h3>
-        <div class="controls-hint-overlay menu-static">
-          <span class="key-badge">MOUSE</span> Look &nbsp;•&nbsp;
-          <span class="key-badge">WASD</span> Move &nbsp;•&nbsp;
-          <span class="key-badge">CLICK</span> Fire &nbsp;•&nbsp;
-          <span class="key-badge">SHIFT</span> Sprint / Hold Breath &nbsp;•&nbsp;
-          <span class="key-badge">SPACE</span> Jump &nbsp;•&nbsp;
-          <span class="key-badge">V</span> Melee &nbsp;•&nbsp;
-          <span class="key-badge">C</span> Crouch &nbsp;•&nbsp;
-          <span class="key-badge">F</span> Flashlight &nbsp;•&nbsp;
-          <span class="key-badge">N</span> NVG &nbsp;•&nbsp;
-          <span class="key-badge">G</span> Grenade &nbsp;•&nbsp;
-          <span class="key-badge">J</span> Smoke &nbsp;•&nbsp;
-          <span class="key-badge">X</span> Claymore &nbsp;•&nbsp;
-          <span class="key-badge">M</span> Map &nbsp;•&nbsp;
-          <span class="key-badge">B</span> Buy &nbsp;•&nbsp;
-          <span class="key-badge">ESC</span> Pause
+      <!-- Settings Panel -->
+      <div class="settings-grid">
+        <div class="setting-group">
+          <label for="setting-sens">
+            <span>🎯 Mouse Sensitivity Scale:</span>
+            <strong id="sens-val-display">1.00</strong>
+          </label>
+          <input type="range" id="setting-sens" min="0.1" max="5.0" step="0.05" value="1.00">
+          <small>Scales internal crosshair movement in Pointer Lock mode (simulates cm/360 input feel).</small>
         </div>
-        <div class="setting-item">
-          <label for="setting-partner-select">SWAT Partner Mode:</label>
-          <select id="setting-partner-select" class="map-select-dropdown">
-            <option value="squad">👥 AI Squadmate Partner</option>
-            <option value="solo">👤 Solo Duty (No AI)</option>
+
+        <div class="setting-group">
+          <label for="setting-pointer-lock-checkbox" class="checkbox-label">
+            <span>🔒 Enable Pointer Lock API Mode</span>
+            <input type="checkbox" id="setting-pointer-lock-checkbox">
+          </label>
+          <small>Hides system cursor and maps raw mouse delta movements (`movementX/Y`) directly to custom canvas crosshair.</small>
+        </div>
+
+        <div class="setting-group">
+          <label for="setting-target-color">
+            <span>🎨 Target Color Theme:</span>
+          </label>
+          <select id="setting-target-color" class="select-dropdown">
+            <option value="cyan">Neon Cyan & Orange Center</option>
+            <option value="green">Lime Green & Red Center</option>
+            <option value="orange">Tactical Orange & Blue Center</option>
+            <option value="white">High-Contrast White & Cyan</option>
           </select>
         </div>
-        <div class="setting-item">
-          <label for="setting-colorblind">Color-Blind Vision Mode:</label>
-          <select id="setting-colorblind" class="map-select-dropdown">
-            <option value="none">Normal Vision</option>
-            <option value="protanopia">Protanopia (Red-Blind)</option>
-            <option value="deuteranopia">Deuteranopia (Green-Blind)</option>
-            <option value="tritanopia">Tritanopia (Blue-Blind)</option>
+
+        <div class="setting-group">
+          <label for="setting-crosshair-style">
+            <span>🎯 Crosshair Style:</span>
+          </label>
+          <select id="setting-crosshair-style" class="select-dropdown">
+            <option value="cross">Tactical Cross (+)</option>
+            <option value="dot">Center Dot (•)</option>
+            <option value="circle">Circle Dot (⊙)</option>
           </select>
         </div>
-        <div class="setting-item checkbox-item" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem;">
-          <label for="setting-screen-shake" style="cursor: pointer; font-size: 0.82rem;">Enable Camera/Recoil Screen Shake:</label>
-          <input type="checkbox" id="setting-screen-shake" checked style="width: 18px; height: 18px; accent-color: #38bdf8; cursor: pointer;">
-        </div>
-        <div class="setting-item checkbox-item" style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.6rem;">
-          <label for="setting-weapon-sway" style="cursor: pointer; font-size: 0.82rem;">Enable Weapon Bobbing & Sway:</label>
-          <input type="checkbox" id="setting-weapon-sway" checked style="width: 18px; height: 18px; accent-color: #38bdf8; cursor: pointer;">
-        </div>
-        <div class="setting-item">
-          <label for="setting-graphics-quality">Performance Graphics Quality:</label>
-          <select id="setting-graphics-quality" class="map-select-dropdown" style="width: 100%;">
-            <option value="high" selected>🌟 High (Full Pixel Ratio & Particles)</option>
-            <option value="medium">⚡ Medium (Balanced 1.0 Pixel Ratio)</option>
-            <option value="low">🔋 Power Saver (0.75 Pixel Ratio)</option>
-          </select>
-        </div>
-        <div class="setting-item">
-          <label for="setting-fps-limit">FPS Frame Rate Cap:</label>
-          <select id="setting-fps-limit" class="map-select-dropdown" style="width: 100%;">
-            <option value="0">⚡ Uncapped (Max Hardware FPS)</option>
-            <option value="120">120 FPS</option>
-            <option value="60" selected>60 FPS (Recommended)</option>
-            <option value="30">30 FPS (Power Saver)</option>
-          </select>
-        </div>
-        <div class="setting-item">
-          <label for="setting-sens">Mouse Sensitivity: <span id="val-sens">1.0</span></label>
-          <input type="range" id="setting-sens" min="0.2" max="3.0" step="0.1" value="1.0">
-        </div>
-        <div class="setting-item">
-          <label for="setting-fov">Field of View (FOV): <span id="val-fov">65</span>°</label>
-          <input type="range" id="setting-fov" min="50" max="90" step="1" value="65">
-        </div>
-        <div class="setting-item">
-          <label for="setting-vol-master">Master Volume: <span id="val-vol-master">100</span>%</label>
-          <input type="range" id="setting-vol-master" min="0" max="100" step="5" value="100">
-        </div>
-        <div class="setting-item">
-          <label for="setting-vol">SFX Volume: <span id="val-vol">100</span>%</label>
-          <input type="range" id="setting-vol" min="0" max="100" step="5" value="100">
-        </div>
-        <div class="setting-item">
-          <label for="setting-vol-voice">Voice Chatter Volume: <span id="val-vol-voice">100</span>%</label>
-          <input type="range" id="setting-vol-voice" min="0" max="100" step="5" value="100">
-        </div>
-        <div class="setting-item">
-          <label for="setting-vol-music">Music Volume: <span id="val-vol-music">100</span>%</label>
-          <input type="range" id="setting-vol-music" min="0" max="100" step="5" value="100">
-        </div>
       </div>
 
-      <div class="pause-btn-group">
-        <button id="start-round-btn" class="pause-btn start-round-pause-btn">▶️ START NEXT ROUND</button>
-        <button id="resume-game-btn" class="pause-btn resume">▶️ RESUME GAME</button>
-        <button id="exit-game-btn" class="pause-btn danger">🚪 EXIT GAME</button>
+      <div class="menu-footer">
+        <button id="close-menu-start-btn" class="main-btn primary-btn large-btn">▶ LAUNCH DRILL [SPACE]</button>
       </div>
     </div>
   </div>
 
-  <!-- Game Over Screen Overlay -->
-  <div id="game-over-modal" class="modal-overlay hidden">
-    <div class="game-over-card">
-      <h2>☠️ OFFICER DOWN / GAME OVER</h2>
-      <p class="game-over-subtitle">You were incapacitated in action by threat forces.</p>
-      <div class="game-over-actions">
-        <button id="revive-btn" class="main-deploy-btn revive-btn">🚑 EMERGENCY MEDICAL FIELD REVIVE (FREE - 1 LEFT)</button>
-        <button id="restart-mission-btn" class="pause-btn danger" style="margin-top: 0.75rem; width: 100%;">🔄 RESTART MISSION</button>
+  <!-- Post-Drill Results Summary Modal -->
+  <div id="results-modal" class="modal-overlay hidden">
+    <div class="results-card">
+      <div class="results-header">
+        <span id="results-rank-badge" class="rank-badge-large">🏆 RADIANT PERFORMANCE</span>
+        <h2 id="results-title">GRIDSHOT DRILL COMPLETE</h2>
+      </div>
+
+      <div class="results-metrics-grid">
+        <div class="metric-box">
+          <span class="metric-label">FINAL SCORE</span>
+          <span id="results-score" class="metric-val tactical-orange">1,850</span>
+        </div>
+        <div class="metric-box">
+          <span class="metric-label">ACCURACY</span>
+          <span id="results-accuracy" class="metric-val neon-cyan">94.2%</span>
+        </div>
+        <div class="metric-box">
+          <span class="metric-label">HITS / MISSES</span>
+          <span id="results-hits-misses" class="metric-val">32 / 2</span>
+        </div>
+        <div class="metric-box">
+          <span class="metric-label">AVG REACTION</span>
+          <span id="results-reaction" class="metric-val tactical-orange">218 ms</span>
+        </div>
+      </div>
+
+      <!-- Reaction Time Trials Table (Shown for Reaction Mode) -->
+      <div id="reaction-trials-container" class="trials-container hidden">
+        <h4>⚡ REACTION TRIALS BREAKDOWN</h4>
+        <div id="trials-list" class="trials-grid"></div>
+      </div>
+
+      <div class="results-actions">
+        <button id="retry-drill-btn" class="main-btn primary-btn">🔄 PLAY AGAIN [SPACE]</button>
+        <button id="return-menu-btn" class="main-btn secondary-btn">📋 MAIN MENU</button>
       </div>
     </div>
   </div>
-
-  <!-- End-of-Round Stats Modal -->
-  <div id="round-stats-modal" class="modal-overlay hidden">
-    <div class="stats-card">
-      <h2>📊 AFTER ACTION REPORT</h2>
-      <p class="stats-subtitle">Round Debriefing & Tactical Performance Breakdown</p>
-      <div class="stats-grid">
-        <div class="stat-box"><span>Shots Fired:</span><strong id="stat-shots">0</strong></div>
-        <div class="stat-box"><span>Accuracy:</span><strong id="stat-accuracy">0%</strong></div>
-        <div class="stat-box"><span>Headshots:</span><strong id="stat-headshots">0</strong></div>
-        <div class="stat-box"><span>Damage Dealt:</span><strong id="stat-damage">0</strong></div>
-        <div class="stat-box"><span>Cash Earned:</span><strong id="stat-cash">$0</strong></div>
-        <div class="stat-box medal-box"><span>MVP Award:</span><strong id="stat-medal">🎖️ EXCELLENT WORK</strong></div>
-      </div>
-      <button id="close-stats-btn" class="main-deploy-btn">🛍️ PROCEED TO ARMORY</button>
-    </div>
-  </div>
-
-  <!-- Exit Game Screen Overlay -->
-  <div id="exit-screen" class="modal-overlay hidden">
-    <div class="exit-card">
-      <h2>🚨 SHIFT ENDED / GAME CLOSED</h2>
-      <p class="exit-subtitle">You have successfully signed off from tactical duty.</p>
-      <div class="exit-btn-group">
-        <button id="restart-game-btn" class="pause-btn resume">🔄 RETURN TO DUTY (RESTART)</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Toast Notification Container -->
-  <div id="toast-container" class="toast-container"></div>
 
   <script src="script.js"></script>
 </body>

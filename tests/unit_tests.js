@@ -1,149 +1,108 @@
-// Node.js Automated Logic Unit Tests for City Defense FPS
+// Node.js Automated Logic Unit Tests for Tactical Aim & Reaction Lab
 const assert = require('assert');
 
-// 1. Test Initial Game State Factory
-function createInitialGameState() {
-  return {
-    cash: 800,
-    health: 100,
-    maxHealth: 100,
-    armor: 0,
-    maxArmor: 100,
-    round: 1,
-    isRoundActive: false,
-    missionState: 'BRIEFING',
-    objectiveProgress: 0,
-    objectiveTarget: 100,
-    sfxMuted: false,
-    xp: 0,
-    rank: '🎖️ CADET',
-    inventory: { pistol: true, smg: false, shotgun: false, rifle: false },
-    attachments: { reddot: false, laser: false, suppressor: false, extmag: false, thermal: false, underbarrel: false },
-    camos: { black: true, urban: true, gold: false },
-    equippedCamo: 'black',
-    equippedWeapon: 'pistol',
-    hasKevlarHelmet: false,
-    swatPartnerMode: 'squad',
-    grenades: 2,
-    smokeGrenades: 2,
-    claymores: 2,
-    ammo: {
-      pistol: { clip: 12, maxClip: 12, reserve: Infinity },
-      smg: { clip: 30, maxClip: 30, reserve: 120 },
-      shotgun: { clip: 6, maxClip: 6, reserve: 24 },
-      rifle: { clip: 30, maxClip: 30, reserve: 90 }
-    }
-  };
+// 1. Accuracy Calculator Logic
+function calculateAccuracy(hits, totalClicks) {
+  if (totalClicks <= 0) return 100.0;
+  return Math.round((hits / totalClicks) * 1000) / 10;
 }
 
-// 2. Test Segment vs Sphere Intersection (Smoke LOS)
-function lineSegmentIntersectsSphere(p1, p2, sphereCenter, radius) {
-  const dx = p2.x - p1.x;
-  const dy = p2.y - p1.y;
-  const dz = p2.z - p1.z;
-  const lenSq = dx * dx + dy * dy + dz * dz;
+// 2. Average Reaction Time Calculator
+function calculateAvgReactionTime(trials) {
+  if (!trials || trials.length === 0) return 0;
+  const sum = trials.reduce((a, b) => a + b, 0);
+  return Math.round(sum / trials.length);
+}
 
-  if (lenSq === 0) {
-    const distSq = (p1.x - sphereCenter.x) ** 2 + (p1.y - sphereCenter.y) ** 2 + (p1.z - sphereCenter.z) ** 2;
-    return distSq <= radius * radius;
+// 3. Score Calculation with Speed Multiplier
+function calculateHitScore(mode, elapsedSec) {
+  const basePts = mode === 'micro' ? 150 : 100;
+  const bonusPts = Math.max(0, Math.round(100 * (1 - elapsedSec)));
+  return basePts + bonusPts;
+}
+
+// 4. Pointer Lock Delta Mouse Translation
+function updateCrosshairPos(current, deltaX, deltaY, sensitivity, canvasWidth, canvasHeight) {
+  const dx = deltaX * sensitivity;
+  const dy = deltaY * sensitivity;
+
+  const newX = Math.max(0, Math.min(canvasWidth, current.x + dx));
+  const newY = Math.max(0, Math.min(canvasHeight, current.y + dy));
+
+  return { x: newX, y: newY };
+}
+
+// 5. Target Collision Ray/Point Distance Check
+function isTargetHit(clickX, clickY, targetX, targetY, radius) {
+  const dist = Math.hypot(clickX - targetX, clickY - targetY);
+  return dist <= radius;
+}
+
+// 6. Rank Classification Resolver
+function getPerformanceRank(mode, score, avgReactionMs) {
+  if (mode === 'gridshot') {
+    if (score >= 2000) return '🏆 RADIANT FLICKER';
+    if (score >= 1200) return '⚡ ELITE AIMER';
+    if (score >= 600) return '🎯 SHARPSHOOTER';
+    return '🎖️ RECRUIT';
+  } else if (mode === 'micro') {
+    if (score >= 1800) return '🏆 PRECISION GOD';
+    if (score >= 1000) return '⚡ MICRO MASTER';
+    return '🎯 RECRUIT';
+  } else if (mode === 'reaction') {
+    if (avgReactionMs > 0 && avgReactionMs <= 190) return '⚡ HUMAN REFLEX GOD (<190ms)';
+    if (avgReactionMs <= 230) return '🏆 PRO CS2 REFLEXES (<230ms)';
+    if (avgReactionMs <= 280) return '🎯 AVERAGE REFLEXES';
+    return '🐢 SLOW RESPONSE';
   }
-
-  let t = ((sphereCenter.x - p1.x) * dx + (sphereCenter.y - p1.y) * dy + (sphereCenter.z - p1.z) * dz) / lenSq;
-  t = Math.max(0, Math.min(1, t));
-
-  const projX = p1.x + t * dx;
-  const projY = p1.y + t * dy;
-  const projZ = p1.z + t * dz;
-
-  const distSq = (projX - sphereCenter.x) ** 2 + (projY - sphereCenter.y) ** 2 + (projZ - sphereCenter.z) ** 2;
-  return distSq <= radius * radius;
-}
-
-// 3. Test Unified Damage Pipeline
-function calculateDamage(baseDamage, bodyPart, hasHelmet, armorPoints) {
-  let mult = 1.0;
-  if (bodyPart === 'head') mult = 2.0;
-  else if (bodyPart === 'limb') mult = 0.75;
-
-  let rawDamage = Math.round(baseDamage * mult);
-  if (hasHelmet) {
-    rawDamage = Math.round(rawDamage * 0.75);
-  }
-
-  let remainingDamage = rawDamage;
-  let armorAbsorbed = 0;
-  if (armorPoints > 0) {
-    armorAbsorbed = Math.min(armorPoints, Math.floor(rawDamage * 0.8));
-    remainingDamage -= armorAbsorbed;
-  }
-
-  return { rawDamage, armorAbsorbed, remainingDamage };
-}
-
-// 4. Test SWAT Command State Transitions
-function issueSwatCommandState(state, command) {
-  state.swatCommand = command;
-  return state.swatCommand;
-}
-
-// 5. Test FPS Limiter Min Frame Interval Calculation
-function calculateMinFrameInterval(targetFps) {
-  if (targetFps <= 0) return 0;
-  return 1000 / targetFps;
+  return '🎖️ PARTICIPANT';
 }
 
 // Run Unit Tests
-console.log('Running Node.js Unit Tests...');
+console.log('Running Node.js Logic Unit Tests for Aim & Reaction Trainer...');
 
-// Test 1: Game State Factory
-const state1 = createInitialGameState();
-assert.strictEqual(state1.cash, 800);
-assert.strictEqual(state1.smokeGrenades, 2);
-assert.strictEqual(state1.claymores, 2);
-assert.strictEqual(state1.missionState, 'BRIEFING');
-assert.strictEqual(state1.inventory.pistol, true);
-assert.strictEqual(state1.inventory.smg, false);
-console.log('✔ Test 1 Passed: createInitialGameState() contains all required properties.');
+// Test 1: Accuracy Calculations
+assert.strictEqual(calculateAccuracy(10, 10), 100.0);
+assert.strictEqual(calculateAccuracy(5, 10), 50.0);
+assert.strictEqual(calculateAccuracy(0, 0), 100.0);
+assert.strictEqual(calculateAccuracy(1, 3), 33.3);
+console.log('✔ Test 1 Passed: calculateAccuracy handles normal and edge cases (0 clicks).');
 
-// Test 2: Segment vs Sphere Intersection (Smoke LOS)
-const p1 = { x: 0, y: 0, z: 0 };
-const p2 = { x: 10, y: 0, z: 0 };
-const smokeCenter = { x: 5, y: 0, z: 0 };
-const smokeRadius = 2;
-assert.strictEqual(lineSegmentIntersectsSphere(p1, p2, smokeCenter, smokeRadius), true);
+// Test 2: Average Reaction Time Calculations
+assert.strictEqual(calculateAvgReactionTime([200, 220, 180, 210, 190]), 200);
+assert.strictEqual(calculateAvgReactionTime([]), 0);
+assert.strictEqual(calculateAvgReactionTime([150]), 150);
+console.log('✔ Test 2 Passed: calculateAvgReactionTime calculates exact averages.');
 
-const farSmoke = { x: 5, y: 10, z: 0 };
-assert.strictEqual(lineSegmentIntersectsSphere(p1, p2, farSmoke, smokeRadius), false);
-console.log('✔ Test 2 Passed: lineSegmentIntersectsSphere correctly detects line-of-sight smoke blocking.');
+// Test 3: Hit Score Multipliers
+assert.strictEqual(calculateHitScore('gridshot', 0), 200); // 100 base + 100 bonus
+assert.strictEqual(calculateHitScore('gridshot', 0.5), 150); // 100 base + 50 bonus
+assert.strictEqual(calculateHitScore('gridshot', 2.0), 100); // 100 base + 0 bonus
+assert.strictEqual(calculateHitScore('micro', 0), 250); // 150 base + 100 bonus
+console.log('✔ Test 3 Passed: calculateHitScore computes base and speed decay bonuses.');
 
-// Test 3: Damage Pipeline
-const dmg1 = calculateDamage(20, 'torso', false, 0);
-assert.strictEqual(dmg1.remainingDamage, 20);
+// Test 4: Crosshair Movement Scaling
+const pos1 = updateCrosshairPos({ x: 500, y: 300 }, 10, -5, 1.5, 1280, 720);
+assert.strictEqual(pos1.x, 515); // 500 + (10 * 1.5)
+assert.strictEqual(pos1.y, 292.5); // 300 + (-5 * 1.5)
 
-const dmg2 = calculateDamage(20, 'head', true, 50); // 40 base -> 30 w/ helmet -> 24 armor absorb, 6 health dmg
-assert.strictEqual(dmg2.rawDamage, 30);
-assert.strictEqual(dmg2.armorAbsorbed, 24);
-assert.strictEqual(dmg2.remainingDamage, 6);
-console.log('✔ Test 3 Passed: calculateDamage correctly applies headshots, helmet reduction, and armor absorption.');
+// Boundary Clamping Test
+const pos2 = updateCrosshairPos({ x: 10, y: 10 }, -50, -50, 1.0, 1280, 720);
+assert.strictEqual(pos2.x, 0);
+assert.strictEqual(pos2.y, 0);
+console.log('✔ Test 4 Passed: updateCrosshairPos scales movement and clamps to canvas boundaries.');
 
-// Test 4: SWAT Command Transition
-const swatState = createInitialGameState();
-assert.strictEqual(issueSwatCommandState(swatState, 'defend'), 'defend');
-assert.strictEqual(issueSwatCommandState(swatState, 'suppress'), 'suppress');
-assert.strictEqual(issueSwatCommandState(swatState, 'breach'), 'breach');
-assert.strictEqual(issueSwatCommandState(swatState, 'follow'), 'follow');
-console.log('✔ Test 4 Passed: SWAT squadmate command transitions function as expected.');
+// Test 5: Target Collision Check
+assert.strictEqual(isTargetHit(100, 100, 100, 100, 25), true); // Center hit
+assert.strictEqual(isTargetHit(115, 100, 100, 100, 25), true); // Edge hit (dist 15 <= 25)
+assert.strictEqual(isTargetHit(130, 100, 100, 100, 25), false); // Miss hit (dist 30 > 25)
+console.log('✔ Test 5 Passed: isTargetHit accurately detects target circle collisions.');
 
-// Test 5: FPS Limiter Intervals
-assert.strictEqual(calculateMinFrameInterval(0), 0);
-assert.strictEqual(calculateMinFrameInterval(60), 1000 / 60);
-assert.strictEqual(calculateMinFrameInterval(30), 1000 / 30);
-assert.strictEqual(calculateMinFrameInterval(120), 1000 / 120);
-console.log('✔ Test 5 Passed: FPS Limiter frame interval calculations function correctly.');
-
-// Test 6: Thermal Scope & Underbarrel Attachment State Factory
-assert.strictEqual(state1.attachments.thermal, false);
-assert.strictEqual(state1.attachments.underbarrel, false);
-console.log('✔ Test 6 Passed: Thermal optics & Underbarrel attachments initialized correctly in game state.');
+// Test 6: Performance Rank Resolver
+assert.strictEqual(getPerformanceRank('gridshot', 2100, 0), '🏆 RADIANT FLICKER');
+assert.strictEqual(getPerformanceRank('gridshot', 1400, 0), '⚡ ELITE AIMER');
+assert.strictEqual(getPerformanceRank('reaction', 0, 180), '⚡ HUMAN REFLEX GOD (<190ms)');
+assert.strictEqual(getPerformanceRank('reaction', 0, 220), '🏆 PRO CS2 REFLEXES (<230ms)');
+console.log('✔ Test 6 Passed: getPerformanceRank assigns accurate performance badges.');
 
 console.log('\nAll Unit Tests Passed Successfully! 🎉');

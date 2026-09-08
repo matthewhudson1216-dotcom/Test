@@ -1,8 +1,13 @@
 from playwright.sync_api import sync_playwright
 import sys
+import os
 
 def run_smoke_test_suite():
     console_errors = []
+
+    # Ensure verification directories exist
+    os.makedirs("/home/jules/verification/videos", exist_ok=True)
+    os.makedirs("/home/jules/verification/screenshots", exist_ok=True)
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
@@ -18,80 +23,66 @@ def run_smoke_test_suite():
             page.goto("http://localhost:8080/index.html")
             page.wait_for_timeout(1000)
 
-            print("2. Verifying Main Menu & Tutorial Button...")
+            print("2. Verifying Main Menu & Routine Cards...")
             assert page.locator("#main-menu-modal").is_visible()
-            assert page.locator("#start-tutorial-btn").is_visible()
+            assert page.locator("#card-gridshot").is_visible()
+            assert page.locator("#card-micro").is_visible()
+            assert page.locator("#card-reaction").is_visible()
 
-            print("3. Starting Tutorial Flow...")
-            page.locator("#start-tutorial-btn").click()
+            print("3. Testing Mouse Sensitivity Slider & Settings...")
+            sens_slider = page.locator("#setting-sens")
+            assert sens_slider.is_visible()
+            sens_slider.fill("2.5")
+            page.wait_for_timeout(200)
+            sens_val = page.locator("#sens-val-display").text_content()
+            assert sens_val == "2.50"
+
+            print("4. Testing Pointer Lock Checkbox & Toggle Button...")
+            pl_checkbox = page.locator("#setting-pointer-lock-checkbox")
+            pl_checkbox.check()
+            page.wait_for_timeout(200)
+
+            pl_btn = page.locator("#pointer-lock-toggle-btn")
+            assert "ON" in pl_btn.text_content()
+
+            print("5. Selecting Routine and Launching Gridshot Drill...")
+            page.locator("#card-gridshot").click()
+            page.locator("#close-menu-start-btn").click()
+
+            page.wait_for_timeout(3000) # Wait for 3s countdown
+
+            print("6. Simulating Target Clicks on Canvas...")
+            canvas = page.locator("#game-canvas")
+            assert canvas.is_visible()
+
+            # Click center of canvas multiple times
+            box = canvas.bounding_box()
+            if box:
+                cx = box["x"] + box["width"] / 2
+                cy = box["y"] + box["height"] / 2
+                page.mouse.click(cx, cy)
+                page.wait_for_timeout(200)
+                page.mouse.click(cx - 50, cy - 50)
+                page.wait_for_timeout(200)
+                page.mouse.click(cx + 50, cy + 50)
+                page.wait_for_timeout(200)
+
+            hits_text = page.locator("#hud-hits").text_content()
+            misses_text = page.locator("#hud-misses").text_content()
+            print(f"HUD Telemetry: Hits = {hits_text}, Misses = {misses_text}")
+
+            print("7. Testing Mode Switch to Reaction Time...")
+            page.keyboard.press("Escape")
             page.wait_for_timeout(500)
-            assert page.locator("#complete-tutorial-btn").is_visible()
-            page.evaluate("document.getElementById('complete-tutorial-btn').click()")
+            assert page.locator("#main-menu-modal").is_visible()
+
+            page.locator("#card-reaction").click(force=True)
+            page.locator("#close-menu-start-btn").click(force=True)
             page.wait_for_timeout(1000)
 
-            print("4. Testing Movement keys (W, S, A, D)...")
-            page.keyboard.press("KeyW")
-            page.wait_for_timeout(200)
-            page.keyboard.press("KeyS")
-            page.wait_for_timeout(200)
-            page.keyboard.press("KeyA")
-            page.wait_for_timeout(200)
-            page.keyboard.press("KeyD")
-            page.wait_for_timeout(200)
-
-            print("5. Testing Crouch (C), Sprint (Shift), Jump (Space)...")
-            page.keyboard.press("KeyC")
-            page.wait_for_timeout(200)
-            page.keyboard.press("KeyC")
-            page.wait_for_timeout(200)
-
-            print("6. Testing Equipment (G, J, X)...")
-            page.keyboard.press("KeyG")
-            page.wait_for_timeout(300)
-            page.keyboard.press("KeyJ")
-            page.wait_for_timeout(300)
-            page.keyboard.press("KeyX")
-            page.wait_for_timeout(300)
-
-            print("7. Testing Tactical Map (M)...")
-            page.keyboard.press("KeyM")
+            print("8. Testing Reset Drill...")
+            page.locator("#reset-drill-btn").click(force=True)
             page.wait_for_timeout(500)
-            close_map_btn = page.locator("#close-map-btn")
-            if close_map_btn.is_visible():
-                close_map_btn.click()
-            page.wait_for_timeout(500)
-
-            print("8. Testing Pause / Resume & Accessibility Toggles...")
-            page.evaluate("togglePauseMenu()")
-            page.wait_for_timeout(500)
-            assert page.locator("#pause-modal").is_visible()
-            assert page.locator("#setting-screen-shake").is_visible()
-            assert page.locator("#setting-weapon-sway").is_visible()
-            page.evaluate("document.getElementById('setting-screen-shake').click()")
-            page.evaluate("document.getElementById('setting-weapon-sway').click()")
-            page.evaluate("document.getElementById('resume-game-btn').click()")
-            page.wait_for_timeout(500)
-
-            print("9. Testing Map Transitions...")
-            map_select = page.locator("#map-select")
-            map_select.select_option("bank")
-            page.wait_for_timeout(500)
-            map_select.select_option("warehouse")
-            page.wait_for_timeout(500)
-            map_select.select_option("street")
-            page.wait_for_timeout(500)
-
-            print("10. Testing Game Over & Free Revive...")
-            page.evaluate("damagePlayer(200)")
-            page.wait_for_timeout(500)
-            assert page.locator("#game-over-modal").is_visible()
-            assert page.locator("#revive-btn").is_visible()
-            page.evaluate("document.getElementById('revive-btn').click()")
-            page.wait_for_timeout(500)
-            page.evaluate("damagePlayer(200)")
-            page.wait_for_timeout(500)
-            page.evaluate("document.getElementById('restart-mission-btn').click()")
-            page.wait_for_timeout(1000)
 
             print("Taking smoke test completion screenshot...")
             page.screenshot(path="/home/jules/verification/screenshots/smoke_test_suite_pass.png")
