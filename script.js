@@ -3799,6 +3799,48 @@ function reloadWeapon() {
   }, wpnDef.reloadTime);
 }
 
+let waveBannerTimer = null;
+let intermissionTimer = null;
+let intermissionCountdown = 15;
+
+function startIntermissionTimer() {
+  if (intermissionTimer) clearInterval(intermissionTimer);
+  intermissionCountdown = 15;
+
+  const buyBtn = document.getElementById('close-buy-menu-btn');
+
+  intermissionTimer = setInterval(() => {
+    intermissionCountdown--;
+    if (buyBtn) {
+      buyBtn.textContent = `CLOSE ARMORY & DEPLOY (AUTO-START IN ${intermissionCountdown}s)`;
+    }
+
+    if (intermissionCountdown <= 0) {
+      clearInterval(intermissionTimer);
+      intermissionTimer = null;
+      if (buyMenuModal && !buyMenuModal.classList.contains('hidden')) {
+        buyMenuModal.classList.add('hidden');
+      }
+      if (roundStatsModal && !roundStatsModal.classList.contains('hidden')) {
+        roundStatsModal.classList.add('hidden');
+      }
+      startNextRound();
+    }
+  }, 1000);
+}
+
+function showWaveBanner(titleText) {
+  const banner = document.getElementById('wave-announcement-banner');
+  if (!banner) return;
+  banner.textContent = titleText;
+  banner.classList.remove('hidden');
+
+  if (waveBannerTimer) clearTimeout(waveBannerTimer);
+  waveBannerTimer = setTimeout(() => {
+    banner.classList.add('hidden');
+  }, 3500);
+}
+
 function startNextRound() {
   if (currentMap === 'range') {
     showToast('🎯 PRACTICE MODE: Target practice active! Switch map to deploy waves.');
@@ -3807,12 +3849,21 @@ function startNextRound() {
   if (gameState.isRoundActive) return;
 
   gameState.isRoundActive = true;
-  enemiesToSpawnInRound = 4 + gameState.round * 3;
+  enemiesToSpawnInRound = 5 + gameState.round * 4;
+
+  let waveTitle = `🚨 WAVE ${gameState.round} DEPLOYED!`;
+  if (gameState.round === 3) waveTitle = '🛡️ WAVE 3: SHIELD WALL ASSAULT!';
+  else if (gameState.round === 5) waveTitle = '👑 WAVE 5 BOSS: HEAVY JUGGERNAUT SYNDICATE!';
+  else if (gameState.round === 7) waveTitle = '🥽 WAVE 7: NIGHT INSURGENCY!';
+  else if (gameState.round >= 10) waveTitle = `💣 WAVE ${gameState.round}: TOTAL MELTDOWN!`;
+
+  showWaveBanner(waveTitle);
   buyMenuModal.classList.add('hidden');
   pauseModal.classList.add('hidden');
   isPaused = false;
 
-  showToast(`🚨 ROUND ${gameState.round} STARTED! Neutralize all Robbers!`);
+  showToast(waveTitle);
+  playRadioChatter(`All units, Wave ${gameState.round} hostiles approaching sector!`);
   updateUI();
 }
 
@@ -4033,7 +4084,7 @@ function checkRoundStatus(lastEnemyPos = null) {
     gameState.isRoundActive = false;
 
     const finishRoundLogic = () => {
-      let roundBonus = 300 + gameState.round * 150;
+      let roundBonus = 400 + gameState.round * 200;
 
       if (isVaultDefenseActive && vaultHp > 0) {
         roundBonus += 800;
@@ -4045,12 +4096,14 @@ function checkRoundStatus(lastEnemyPos = null) {
       }
 
       gameState.cash += roundBonus;
+      addXP(100);
       gameState.round += 1;
       careerStats.highestRound = Math.max(careerStats.highestRound, gameState.round);
       saveCareerStats();
 
-      showToast(`🎉 ROUND COMPLETED! Earned +$${roundBonus} Intermission Bonus!`);
+      showToast(`🎉 WAVE COMPLETED! Earned +$${roundBonus} Intermission Bonus & +100 XP!`);
       showAfterActionReport(roundBonus);
+      startIntermissionTimer();
       updateUI();
     };
 

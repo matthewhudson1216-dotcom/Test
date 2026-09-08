@@ -376,6 +376,35 @@ header h1 {
   display: none;
 }
 
+.wave-announcement-banner {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(15, 23, 42, 0.95);
+  border: 3px solid #38bdf8;
+  color: #38bdf8;
+  padding: 12px 30px;
+  border-radius: 16px;
+  font-size: 1.6rem;
+  font-weight: 900;
+  letter-spacing: 1.5px;
+  pointer-events: none;
+  z-index: 15;
+  box-shadow: 0 0 35px rgba(56, 189, 248, 0.8);
+  white-space: nowrap;
+  animation: bannerSlide 0.5s ease-out;
+}
+
+.wave-announcement-banner.hidden {
+  display: none;
+}
+
+@keyframes bannerSlide {
+  0% { transform: translate(-50%, -80%) scale(0.7); opacity: 0; }
+  100% { transform: translate(-50%, -50%) scale(1.0); opacity: 1; }
+}
+
 @keyframes pulseCombo {
   0% { transform: translateX(-50%) scale(0.6); opacity: 0; }
   50% { transform: translateX(-50%) scale(1.25); }
