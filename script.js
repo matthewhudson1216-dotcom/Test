@@ -406,7 +406,7 @@ function startAdaptiveSoundtrack() {
   }, 160);
 }
 
-function playSyntheticSound(type, worldPos = null) {
+function playSyntheticSound(type, worldPos = null, surfaceType = 'concrete') {
   if (gameState.sfxMuted || sfxVolume <= 0) return;
   initAudio();
   if (!audioCtx) return;
@@ -585,11 +585,37 @@ function playSyntheticSound(type, worldPos = null) {
     osc.start(now);
     osc.stop(now + 0.045);
   } else if (type === 'knife') {
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(1200, now);
-    osc.frequency.exponentialRampToValueAtTime(400, now + 0.08);
-    gain.gain.setValueAtTime(0.25 * volMult, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+    if (surfaceType === 'flesh') {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(120, now);
+      osc.frequency.exponentialRampToValueAtTime(40, now + 0.05);
+      gain.gain.setValueAtTime(0.3 * volMult, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+    } else if (surfaceType === 'metal') {
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(1400, now);
+      osc.frequency.exponentialRampToValueAtTime(1800, now + 0.08);
+      gain.gain.setValueAtTime(0.25 * volMult, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+    } else if (surfaceType === 'wood') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(220, now);
+      osc.frequency.exponentialRampToValueAtTime(80, now + 0.06);
+      gain.gain.setValueAtTime(0.25 * volMult, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
+    } else if (surfaceType === 'glass') {
+      osc.type = 'sawtooth';
+      osc.frequency.setValueAtTime(2200, now);
+      osc.frequency.exponentialRampToValueAtTime(3200, now + 0.1);
+      gain.gain.setValueAtTime(0.3 * volMult, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+    } else {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(350, now);
+      osc.frequency.exponentialRampToValueAtTime(650, now + 0.06);
+      gain.gain.setValueAtTime(0.2 * volMult, now);
+      gain.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
+    }
     osc.start(now);
     osc.stop(now + 0.08);
   }
@@ -1009,6 +1035,8 @@ function init3D() {
   renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
   renderer.setSize(width, height);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   container.appendChild(renderer.domElement);
 
   ambientLight = new THREE.AmbientLight(0xffffff, isNVGOn ? 2.8 : 0.5);
@@ -1370,16 +1398,26 @@ function movePlayer(moveX, moveZ, dt = 0.016) {
   let canMoveX = true;
   let canMoveZ = true;
 
-  barricadeObstacles.forEach(box => {
-    if (targetX >= box.min.x - 0.35 && targetX <= box.max.x + 0.35 &&
-        playerPos.z >= box.min.z - 0.35 && playerPos.z <= box.max.z + 0.35) {
-      canMoveX = false;
-    }
-    if (playerPos.x >= box.min.x - 0.35 && playerPos.x <= box.max.x + 0.35 &&
-        targetZ >= box.min.z - 0.35 && targetZ <= box.max.z + 0.35) {
-      canMoveZ = false;
-    }
-  });
+  const playerRadius = 0.4;
+  const testBoxX = new THREE.Box3(
+    new THREE.Vector3(targetX - playerRadius, -1.2, playerPos.z - playerRadius),
+    new THREE.Vector3(targetX + playerRadius, 1.2, playerPos.z + playerRadius)
+  );
+  const testBoxZ = new THREE.Box3(
+    new THREE.Vector3(playerPos.x - playerRadius, -1.2, targetZ - playerRadius),
+    new THREE.Vector3(playerPos.x + playerRadius, 1.2, targetZ + playerRadius)
+  );
+
+  // Dynamic AABB Bounding Box collision against barricades & obstacle meshes
+  if (obstacleMeshes && obstacleMeshes.length > 0) {
+    obstacleMeshes.forEach(mesh => {
+      if (!mesh || !mesh.geometry) return;
+      const obsBox = new THREE.Box3().setFromObject(mesh);
+
+      if (obsBox.intersectsBox(testBoxX)) canMoveX = false;
+      if (obsBox.intersectsBox(testBoxZ)) canMoveZ = false;
+    });
+  }
 
   if (canMoveX) playerPos.x = targetX;
   if (canMoveZ) playerPos.z = targetZ;
@@ -2781,8 +2819,23 @@ function animate(currentTime) {
     }
   }
 
-  // Animate Robber Enemies advancing on Cop
+  // Animate Robber Enemies advancing on Cop with Soft Repulsion Force
   if (gameState.isRoundActive && !isCountingDown) {
+    // Enemy-to-enemy soft repulsion force calculation
+    const enemyMinDist = 0.95;
+    for (let i = 0; i < activeEnemies.length; i++) {
+      for (let j = i + 1; j < activeEnemies.length; j++) {
+        const e1 = activeEnemies[i];
+        const e2 = activeEnemies[j];
+        const dist = e1.mesh.position.distanceTo(e2.mesh.position);
+        if (dist < enemyMinDist && dist > 0.001) {
+          const pushVec = e1.mesh.position.clone().sub(e2.mesh.position).normalize().multiplyScalar((enemyMinDist - dist) * 0.4 * dtFactor);
+          e1.mesh.position.add(pushVec);
+          e2.mesh.position.sub(pushVec);
+        }
+      }
+    }
+
     for (let i = activeEnemies.length - 1; i >= 0; i--) {
       const enemy = activeEnemies[i];
 
@@ -2870,46 +2923,52 @@ function animate(currentTime) {
         }
       }
 
-      // Raycast-assisted pathfinding steering around obstacles
+      // Smart Multi-Raycast Sensor Probes Navigation (Left, Front-Left, Front, Front-Right, Right)
       let moveDir = moveTarget.clone().sub(enemy.mesh.position);
       moveDir.y = 0;
       if (moveDir.length() > 0.1) moveDir.normalize();
 
-      let nextPos = enemy.mesh.position.clone().addScaledVector(moveDir, currentSpeed);
+      const probeAngles = [0, -Math.PI / 6, Math.PI / 6, -Math.PI / 3, Math.PI / 3];
+      let chosenDir = moveDir.clone();
+      let bestClearance = -1;
 
-      let blockedByBarricade = false;
+      for (let p = 0; p < probeAngles.length; p++) {
+        const testDir = moveDir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), probeAngles[p]);
+        const testPos = enemy.mesh.position.clone().addScaledVector(testDir, currentSpeed * 2.5);
+
+        let blocked = false;
+        if (obstacleMeshes && obstacleMeshes.length > 0) {
+          for (let m = 0; m < obstacleMeshes.length; m++) {
+            const mesh = obstacleMeshes[m];
+            if (!mesh || !mesh.geometry) continue;
+            const box = new THREE.Box3().setFromObject(mesh);
+            if (box.containsPoint(testPos)) {
+              blocked = true;
+              break;
+            }
+          }
+        }
+
+        if (!blocked) {
+          const clearance = testDir.dot(moveDir);
+          if (clearance > bestClearance) {
+            bestClearance = clearance;
+            chosenDir = testDir;
+          }
+        }
+      }
+
+      let nextPos = enemy.mesh.position.clone().addScaledVector(chosenDir, currentSpeed);
+      let finalBlocked = false;
       barricadeObstacles.forEach(box => {
         if (nextPos.x >= box.min.x - 0.35 && nextPos.x <= box.max.x + 0.35 &&
             nextPos.z >= box.min.z - 0.35 && nextPos.z <= box.max.z + 0.35) {
-          blockedByBarricade = true;
+          finalBlocked = true;
         }
       });
 
-      if (!blockedByBarricade) {
+      if (!finalBlocked) {
         enemy.mesh.position.copy(nextPos);
-      } else {
-        // Try steering left or right around obstacle
-        const leftDir = moveDir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 4);
-        const rightDir = moveDir.clone().applyAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 4);
-
-        const tryLeft = enemy.mesh.position.clone().addScaledVector(leftDir, currentSpeed);
-        let leftBlocked = false;
-        barricadeObstacles.forEach(box => {
-          if (tryLeft.x >= box.min.x - 0.35 && tryLeft.x <= box.max.x + 0.35 &&
-              tryLeft.z >= box.min.z - 0.35 && tryLeft.z <= box.max.z + 0.35) leftBlocked = true;
-        });
-
-        if (!leftBlocked) {
-          enemy.mesh.position.copy(tryLeft);
-        } else {
-          const tryRight = enemy.mesh.position.clone().addScaledVector(rightDir, currentSpeed);
-          let rightBlocked = false;
-          barricadeObstacles.forEach(box => {
-            if (tryRight.x >= box.min.x - 0.35 && tryRight.x <= box.max.x + 0.35 &&
-                tryRight.z >= box.min.z - 0.35 && tryRight.z <= box.max.z + 0.35) rightBlocked = true;
-          });
-          if (!rightBlocked) enemy.mesh.position.copy(tryRight);
-        }
       }
 
       // Human walking animation (leg & arm swinging)
@@ -3175,6 +3234,20 @@ function renderHUDCanvas() {
     hudOverlayCtx.restore();
 
     hitmarkerOpacity -= 0.08;
+  }
+
+  // 4. Render Animated Reload Progress Ring around Crosshair
+  if (isReloading && isReloadingAnimation > 0) {
+    hudOverlayCtx.save();
+    hudOverlayCtx.strokeStyle = '#38bdf8';
+    hudOverlayCtx.lineWidth = 3;
+    hudOverlayCtx.shadowColor = '#38bdf8';
+    hudOverlayCtx.shadowBlur = 8;
+
+    hudOverlayCtx.beginPath();
+    hudOverlayCtx.arc(cx, cy, 22, -Math.PI / 2, -Math.PI / 2 + (Math.PI * 2 * isReloadingAnimation));
+    hudOverlayCtx.stroke();
+    hudOverlayCtx.restore();
   }
 }
 
@@ -3563,6 +3636,22 @@ function spawnBodyHitParticles(hitPoint, isHeadshot) {
     );
     activeProjectiles.push({ mesh: p, velocity: vel, life: 12 });
   }
+}
+
+function spawnBulletDecal(hitPoint, normal) {
+  if (!scene || !hitPoint || !normal) return;
+
+  const decalGeom = new THREE.PlaneGeometry(0.12, 0.12);
+  const decalMat = new THREE.MeshBasicMaterial({ color: 0x0f172a, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -1 });
+  const decal = new THREE.Mesh(decalGeom, decalMat);
+
+  decal.position.copy(hitPoint).addScaledVector(normal, 0.01);
+  decal.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), normal);
+
+  scene.add(decal);
+  setTimeout(() => {
+    if (decal && scene) scene.remove(decal);
+  }, 12000);
 }
 
 function spawnSparkParticles(hitPoint, hexColor) {
@@ -4284,6 +4373,14 @@ function setupEventListeners() {
       showToast(`🗺️ MAP SWITCHED TO: ${e.target.options[e.target.selectedIndex].text}`);
     });
   }
+  // Mouse Wheel Inventory Quick Switch Listener
+  window.addEventListener('wheel', (e) => {
+    if (!isGameExited && !isPaused && isPointerLocked) {
+      if (e.deltaY > 0) switchWeaponNext();
+      else if (e.deltaY < 0) switchWeaponPrev();
+    }
+  });
+
   // Prevent default context menu on right click for ADS
   canvasContainer.addEventListener('contextmenu', (e) => e.preventDefault());
 
@@ -4424,6 +4521,11 @@ function setupEventListeners() {
       if (e.code === 'Digit2' || e.code === 'Numpad2') { issueSwatCommand('defend'); return; }
       if (e.code === 'Digit3' || e.code === 'Numpad3') { issueSwatCommand('suppress'); return; }
       if (e.code === 'Digit4' || e.code === 'Numpad4') { issueSwatCommand('breach'); return; }
+    } else if (!isGameExited) {
+      if (e.code === 'Digit1' || e.code === 'Numpad1') { equipWeapon('pistol'); return; }
+      if (e.code === 'Digit2' || e.code === 'Numpad2') { equipWeapon('smg'); return; }
+      if (e.code === 'Digit3' || e.code === 'Numpad3') { equipWeapon('shotgun'); return; }
+      if (e.code === 'Digit4' || e.code === 'Numpad4') { equipWeapon('rifle'); return; }
     }
 
     if (e.code === 'KeyM' || e.code === 'Keym' || e.key === 'm' || e.key === 'M') {
@@ -4941,15 +5043,55 @@ function stopAutoFire() {
   }
 }
 
+let quickSwitchBadgeTimer = null;
+
+function showQuickSwitchBadge(wpnName) {
+  const badge = document.getElementById('weapon-quickswitch-badge');
+  if (!badge) return;
+  badge.textContent = `🔫 ${wpnName.toUpperCase()}`;
+  badge.classList.remove('hidden');
+
+  if (quickSwitchBadgeTimer) clearTimeout(quickSwitchBadgeTimer);
+  quickSwitchBadgeTimer = setTimeout(() => {
+    badge.classList.add('hidden');
+  }, 1800);
+}
+
 function equipWeapon(wpnKey) {
   if (gameState.inventory[wpnKey]) {
     stopAutoFire();
     gameState.equippedWeapon = wpnKey;
     playSound('buy');
-    showToast(`🔫 Equipped ${weaponsDef[wpnKey].name}!`);
+    const name = weaponsDef[wpnKey] ? weaponsDef[wpnKey].name : wpnKey;
+    showToast(`🔫 Equipped ${name}!`);
+    showQuickSwitchBadge(name);
     updateFPSWeaponMesh();
     updateUI();
     updateBuyMenuUI();
+  }
+}
+
+function switchWeaponNext() {
+  const order = ['pistol', 'smg', 'shotgun', 'rifle'];
+  const currentIndex = order.indexOf(gameState.equippedWeapon);
+  for (let i = 1; i < order.length; i++) {
+    const nextKey = order[(currentIndex + i) % order.length];
+    if (gameState.inventory[nextKey]) {
+      equipWeapon(nextKey);
+      break;
+    }
+  }
+}
+
+function switchWeaponPrev() {
+  const order = ['pistol', 'smg', 'shotgun', 'rifle'];
+  const currentIndex = order.indexOf(gameState.equippedWeapon);
+  for (let i = 1; i < order.length; i++) {
+    const prevKey = order[(currentIndex - i + order.length) % order.length];
+    if (gameState.inventory[prevKey]) {
+      equipWeapon(prevKey);
+      break;
+    }
   }
 }
 
