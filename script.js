@@ -2086,10 +2086,12 @@ function spawnRobberEnemy() {
 
   // Determine enemy archetype
   const randType = Math.random();
-  let type = 'standard'; // standard, runner, shooter, shield
-  if (randType < 0.25) type = 'runner';
-  else if (randType < 0.55) type = 'shooter';
-  else if (randType < 0.75) type = 'shield';
+  let type = 'standard'; // standard, runner, shooter, shield, sniper, juggernaut
+  if (randType < 0.2) type = 'runner';
+  else if (randType < 0.45) type = 'shooter';
+  else if (randType < 0.65) type = 'shield';
+  else if (randType < 0.8) type = 'sniper';
+  else if (gameState.round >= 3 && randType >= 0.8) type = 'juggernaut';
 
   const robberGroup = new THREE.Group();
 
@@ -2233,6 +2235,13 @@ function spawnRobberEnemy() {
   } else if (type === 'shield') {
     speed *= 0.6;
     hp *= 2.2;
+  } else if (type === 'sniper') {
+    speed *= 0.2;
+    hp *= 1.1;
+    robberGroup.position.set((Math.random() - 0.5) * 14.0, 3.2, -14.0 - Math.random() * 4.0);
+  } else if (type === 'juggernaut') {
+    speed *= 0.45;
+    hp *= 4.5;
   }
 
   const enemy = {
@@ -3505,6 +3514,7 @@ function handleShooterClick(event) {
           careerStats.totalKills += 1;
           if (hitBodyPart === 'head') careerStats.headshots += 1;
           saveCareerStats();
+          registerKillCombo();
           spawnFloatingText(`+$${reward}`, screenCenterX, screenCenterY, false);
           checkRoundStatus(enemyPos);
         } else {
@@ -3603,6 +3613,7 @@ function handleShooterClick(event) {
         careerStats.totalKills += 1;
         if (hitBodyPart === 'head') careerStats.headshots += 1;
         saveCareerStats();
+        registerKillCombo();
         spawnFloatingText(`+$${reward}`, screenCenterX, screenCenterY, false);
         checkRoundStatus(enemyPos);
       } else {
@@ -4501,6 +4512,13 @@ function setupEventListeners() {
       return;
     }
 
+    if (e.code === 'KeyP' || e.code === 'Keyp' || e.key === 'p' || e.key === 'P') {
+      if (!isGameExited) {
+        activateUAVReconScan();
+      }
+      return;
+    }
+
     if (e.code === 'KeyU' || e.code === 'Keyu' || e.key === 'u' || e.key === 'U') {
       if (!isGameExited) {
         fireUnderbarrel40mmGrenade();
@@ -5169,6 +5187,53 @@ function deployClaymore() {
   scene.add(claymoreGroup);
   activeClaymores.push({ mesh: claymoreGroup, pos: dropPos });
   showToast('💥 CLAYMORE TRIPWIRE MINE PLANTED!');
+}
+
+let recentKillCount = 0;
+let killComboTimer = null;
+let uavScanActive = false;
+
+function registerKillCombo() {
+  recentKillCount++;
+  const badge = document.getElementById('combo-streak-badge');
+  if (badge) {
+    let title = '🔥 DOUBLE KILL x2';
+    if (recentKillCount === 3) title = '⚡ TRIPLE KILL x3!';
+    else if (recentKillCount === 4) title = '💥 MULTI-KILL x4!';
+    else if (recentKillCount >= 5) title = '👑 PRECINCT HERO x' + recentKillCount + '!';
+
+    badge.textContent = title;
+    badge.classList.remove('hidden');
+
+    if (killComboTimer) clearTimeout(killComboTimer);
+    killComboTimer = setTimeout(() => {
+      badge.classList.add('hidden');
+      recentKillCount = 0;
+    }, 2800);
+  }
+}
+
+function activateUAVReconScan() {
+  if (gameState.cash < 400) {
+    showToast('❌ Not enough cash for Tactical UAV Recon Scan ($400)!');
+    return;
+  }
+  if (uavScanActive) {
+    showToast('📡 UAV Recon Scan already active!');
+    return;
+  }
+
+  gameState.cash -= 400;
+  uavScanActive = true;
+  playSound('buy');
+  showToast('📡 TACTICAL UAV RECON SCAN ACTIVATED! All enemies revealed for 10s!');
+  playRadioChatter('UAV online! Highlighting enemy signatures across sector!');
+
+  setTimeout(() => {
+    uavScanActive = false;
+    showToast('📡 UAV Recon Scan expired.');
+  }, 10000);
+  updateUI();
 }
 
 function fireUnderbarrel40mmGrenade() {
